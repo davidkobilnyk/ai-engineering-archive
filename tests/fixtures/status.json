@@ -1,0 +1,28 @@
+{
+ "schemaVersion": 1,
+ "status": "available",
+ "scope": "authorized_public_corpus",
+ "url": "https://ai.engineer/api/data/status",
+ "checkedAt": "2026-09-15T02:54:24.856Z",
+ "corpusVersion": "575e4c565354bf07b7d567ab08376f4176910a799bf0ef29ed41868192e0dc24",
+ "sourceUpdatedAt": null,
+ "authorizedAt": "2026-09-03T09:56:00.000Z",
+ "publishedAt": "2026-09-03T10:03:35.969Z",
+ "counts": {
+  "talks": 1087,
+  "transcriptSegments": 170944
+ },
+ "transcriptCoverage": {
+  "talksWithTranscripts": 1087,
+  "totalTalks": 1087,
+  "completeness": "not_measured"
+ },
+ "notes": [
+  "Status reports source metadata availability, not a cryptographic integrity audit.",
+  "Counts cover the authorized public corpus only; public collections also merge other site records.",
+  "Transcript availability does not measure transcript completeness or accuracy. Unknown values are null, not zero.",
+  "checkedAt is the status check time; metadata may be cached for five minutes. It is not a source update time.",
+  "authorizedAt is release authorization; publishedAt is recorded pointer promotion time, not source update time.",
+  "Conference dates come from the registry. Schedule availability is checked separately by get_schedule; this status does not probe schedules."
+ ]
+}

@@ -1,0 +1,64 @@
+[
+ {
+  "slug": "openai",
+  "name": "OpenAI",
+  "url": "https://ai.engineer/orgs/openai",
+  "summary": null,
+  "speakerSlugs": [
+   "jason-liu",
+   "ryan-lopopolo"
+  ],
+  "talkSlugs": [
+   "agent-reinforcement-fine-tuning",
+   "building-effective-voice-agents",
+   "building-voice-agents-with-openai",
+   "codex-and-subagents",
+   "codex-behind-the-harness",
+   "creating-agents-that-co-create",
+   "define-ai-engineer",
+   "from-fork-to-fleet-designing-an-agent-sandbox-cloud-abhishek-bhardwaj-openai",
+   "from-text-to-vision-to-voice-exploring-multimodality-with-openai",
+   "full-workshop-setting-yourself-up-for-success-jason-liu-openai-codex",
+   "function-calling-is-all-you-need",
+   "future-proof-coding-agents",
+   "harness-engineering",
+   "model-maxxing-rft-dpo-sft-fine-tuning-with-openai-ilan-bigio-openai",
+   "openai-for-vps-of-ai",
+   "safety-and-security-for-code-executing-agents",
+   "see-hear-speak-draw",
+   "specifications-are-the-new-code",
+   "state-of-the-claw",
+   "the-golden-age-of-ai-engineering",
+   "your-agent-didn-t-fail-your-harness-did",
+   "your-realtime-ai-is-ngmi-sean-dubois-openai-kwindla-hultman-kramer-daily"
+  ]
+ },
+ {
+  "slug": "neo4j",
+  "name": "Neo4j",
+  "url": "https://ai.engineer/orgs/neo4j",
+  "summary": null,
+  "speakerSlugs": [
+   "emil-eifrem"
+  ],
+  "talkSlugs": [
+   "agentic-graphrag-ai-s-logical-edge",
+   "agentic-graphrag-simplifying-retrieval-across-structured-unstructured-data-zach-blumenfeld",
+   "ai-on-your-lakehouse-context-comes-in-shapes-not-queries",
+   "anchoring-enterprise-genai-with-knowledge-graphs",
+   "connecting-the-dots-with-context-graphs",
+   "context-engineering-connecting-the-dots-with-graphs-stephen-chin-neo4j",
+   "context-graphs-for-explainable-decision-aware-ai-agents",
+   "crabrag-why-automated-assistants-need-graph-memory-not-more-tokens",
+   "graph-intelligence-enhance-reasoning-and-retrieval-using-graph-analytics",
+   "graphrag",
+   "intro-to-graphrag",
+   "memory-masterclass-make-your-ai-agents-remember-what-they-do-mark-bain-aius",
+   "practical-graphrag-making-llms-smarter-with-knowledge-graphs",
+   "thinner-agents-on-a-smarter-substrate-the-ontology-based-semantic-layer",
+   "understanding-ai-stakes-to-break-production-code",
+   "why-your-agent-s-brain-needs-a-playbook-practical-wins-from-using-ontologies",
+   "why-your-agents-need-decision-traces-not-just-documents-zach-blumenfeld-neo4j"
+  ]
+ }
+]
