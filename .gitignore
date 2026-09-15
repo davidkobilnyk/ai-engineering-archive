@@ -219,3 +219,7 @@ __marimo__/
 
 # Mac
 .DS_Store
+
+# aie archive data and venv
+data/
+.venv/
