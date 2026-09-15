@@ -1191,7 +1191,7 @@ def test_index_reports_unresolved_event_strings(synced_dir):
     assert "unresolved events: graphrag: 'mystery-conf'" in result.stdout
     found = run_aie("search", '"apples and oranges"', data_dir=synced_dir)
     assert "slug: graphrag" in found.stdout
-    assert "unknown edition" in found.stdout
+    assert " · mystery-conf\n" in found.stdout  # raw event shown, no date range
 
 
 def test_index_skips_a_malformed_transcript_and_continues(synced_dir):
