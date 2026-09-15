@@ -1,0 +1,12 @@
+[
+  {"series": "summit", "year": 2023, "title": "AI Engineer Summit 2023", "start_date": "2023-10-08", "end_date": "2023-10-10", "location": "San Francisco"},
+  {"series": "worldsfair", "year": 2024, "title": "AI Engineer World's Fair 2024", "start_date": "2024-06-25", "end_date": "2024-06-27", "location": "San Francisco"},
+  {"series": "summit", "year": 2025, "title": "AI Engineer Summit 2025", "start_date": "2025-02-19", "end_date": "2025-02-22", "location": "New York"},
+  {"series": "worldsfair", "year": 2025, "title": "AI Engineer World's Fair 2025", "start_date": "2025-06-03", "end_date": "2025-06-05", "location": "San Francisco"},
+  {"series": "paris", "year": 2025, "title": "AI Engineer Paris 2025", "start_date": "2025-09-23", "end_date": "2025-09-24", "location": "Paris"},
+  {"series": "code", "year": 2025, "title": "AI Engineer Code 2025", "start_date": "2025-11-19", "end_date": "2025-11-22", "location": "New York"},
+  {"series": "europe", "year": 2026, "title": "AI Engineer Europe 2026", "start_date": "2026-04-08", "end_date": "2026-04-10", "location": "London"},
+  {"series": "miami", "year": 2026, "title": "AI Engineer Miami 2026", "start_date": "2026-04-20", "end_date": "2026-04-21", "location": "Miami"},
+  {"series": "singapore", "year": 2026, "title": "AI Engineer Singapore 2026", "start_date": "2026-05-15", "end_date": "2026-05-17", "location": "Singapore"},
+  {"series": "worldsfair", "year": 2026, "title": "AI Engineer World's Fair 2026", "start_date": "2026-06-29", "end_date": "2026-07-02", "location": "San Francisco"}
+]
