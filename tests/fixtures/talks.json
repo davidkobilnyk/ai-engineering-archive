@@ -1,0 +1,62 @@
+[
+ {
+  "slug": "graphrag",
+  "title": "GraphRAG: The Marriage of Knowledge Graphs and RAG: Emil Eifrem",
+  "url": "https://ai.engineer/talks/knDDGYHnnSI-graphrag",
+  "videoId": "knDDGYHnnSI",
+  "event": "worldsfair-2024",
+  "durationMs": 1155000,
+  "speakers": [
+   {
+    "name": "Emil Eifrem"
+   }
+  ],
+  "topics": [
+   {
+    "slug": "rag-and-knowledge",
+    "name": "RAG and knowledge systems"
+   }
+  ],
+  "summary": "Emil Eifrem, Neo4j co-founder and CEO, argues that GraphRAG—combining knowledge graphs with vector search—significantly improves RAG application accuracy, ease of development, and explainability. Citing studies, he reports accuracy gains of 3x (Data.org), 75-77% (LinkedIn), and Microsoft's finding that GraphRAG enables answering entirely new question types. He demonstrates Neo4j's Knowledge Graph Builder, which auto-generates graphs from PDFs, Wikipedia, and YouTube, making graph creation accessible. Eifrem frames this as the next evolution in search after PageRank and Google's knowledge graph, urging developers to adopt GraphRAG for richer context and better AI outcomes."
+ },
+ {
+  "slug": "structured-llm-outputs-with-pydantic",
+  "title": "Pydantic is all you need: Jason Liu",
+  "url": "https://ai.engineer/talks/yj-wSRJwrrc-structured-llm-outputs-with-pydantic",
+  "videoId": "yj-wSRJwrrc",
+  "event": "AI Engineer Summit 2023",
+  "durationMs": 1075000,
+  "speakers": [
+   {
+    "name": "Jason Liu"
+   }
+  ],
+  "topics": [
+   {
+    "slug": "rag-and-knowledge",
+    "name": "RAG and knowledge systems"
+   }
+  ],
+  "summary": "Jason Liu argues that Pydantic is the key to building reliable LLM applications by using structured prompting with OpenAI function calling. He introduces Instructor, a library that patches OpenAI's API to return Pydantic objects instead of raw JSON, ensuring type safety and validation. Liu demonstrates how Pydantic's 70 million downloads make it a trusted tool for defining data models with type hints, field validators, and even LLM-powered validators that catch errors like \"don't say mean things\" and retry via max retries. He shows concrete examples: decomposing user queries into structured search objects for RAG, generating a query plan DAG with parallel dependencies, extracting knowledge graphs for visualization, and verifying facts by requiring substring quotes from source text. Liu emphasizes that structuring prompts as code moves development from string manipulation to domain modeling, enabling cleaner, more maintainable systems that integrate easily with existing software."
+ },
+ {
+  "slug": "harness-engineering",
+  "title": "Harness Engineering: How to Build Software When Humans Steer, Agents Execute — Ryan Lopopolo, OpenAI",
+  "url": "https://ai.engineer/talks/am_oeAoUhew-harness-engineering",
+  "videoId": "am_oeAoUhew",
+  "event": "AI Engineer Europe 2026",
+  "durationMs": 2781000,
+  "speakers": [
+   {
+    "name": "Ryan Lopopolo"
+   }
+  ],
+  "topics": [
+   {
+    "slug": "agent-engineering",
+    "name": "Agent engineering"
+   }
+  ],
+  "summary": "Ryan Lopopolo, a member of technical staff at OpenAI, argues that software engineers must shift to 'harness engineering' where agents produce all code and humans focus on delegation, system design, and guardrails. He describes how his team banned editors, using Codex with skills to manipulate apps, and reduced review friction by automating lint rules and review agents. Lopopolo explains that code is free but human time and model context are scarce, so teams should structure repositories for consistency and use 'garbage collection days' to eliminate recurring slop. He shares practical techniques like writing tests about source code (e.g., file length limits) and using review agents that inject prompts. His future vision involves agents autonomously executing long-horizon work based on token budgets and success metrics, freeing humans for higher-level activities."
+ }
+]

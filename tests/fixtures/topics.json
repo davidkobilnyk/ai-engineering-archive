@@ -1,0 +1,21 @@
+[
+ {
+  "slug": "agent-engineering",
+  "name": "Agent engineering",
+  "url": "https://ai.engineer/topics/agent-engineering",
+  "description": "Talks about designing, evaluating, and operating AI agents and their harnesses.",
+  "talkSlugs": [
+   "harness-engineering"
+  ]
+ },
+ {
+  "slug": "rag-and-knowledge",
+  "name": "RAG and knowledge systems",
+  "url": "https://ai.engineer/topics/rag-and-knowledge",
+  "description": "Talks whose official titles focus on retrieval, GraphRAG, ontologies, or structured model outputs.",
+  "talkSlugs": [
+   "graphrag",
+   "structured-llm-outputs-with-pydantic"
+  ]
+ }
+]

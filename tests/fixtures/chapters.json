@@ -1,0 +1,188 @@
+[
+ {
+  "talkSlug": "graphrag",
+  "title": "Intro",
+  "startMs": 0,
+  "endMs": 38000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "Search Evolution",
+  "startMs": 38000,
+  "endMs": 295000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "GraphRAG Defined",
+  "startMs": 295000,
+  "endMs": 446000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "Core Pattern",
+  "startMs": 446000,
+  "endMs": 518000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "Benefits",
+  "startMs": 518000,
+  "endMs": 860000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "Getting Started",
+  "startMs": 860000,
+  "endMs": 943000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "Live Demo",
+  "startMs": 943000,
+  "endMs": 1112000
+ },
+ {
+  "talkSlug": "graphrag",
+  "title": "Call to Action",
+  "startMs": 1112000,
+  "endMs": 1155000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Intro",
+  "startMs": 0,
+  "endMs": 42000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "JSON Pain",
+  "startMs": 42000,
+  "endMs": 89000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Function Calling",
+  "startMs": 89000,
+  "endMs": 223000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Pydantic",
+  "startMs": 223000,
+  "endMs": 312000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Instructor",
+  "startMs": 312000,
+  "endMs": 440000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Validation",
+  "startMs": 440000,
+  "endMs": 542000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Escape Hatch",
+  "startMs": 542000,
+  "endMs": 590000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Modularity",
+  "startMs": 590000,
+  "endMs": 730000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "RAG",
+  "startMs": 730000,
+  "endMs": 802000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Graphs",
+  "startMs": 802000,
+  "endMs": 902000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Anti-Hallucination",
+  "startMs": 902000,
+  "endMs": 995000
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Outlook",
+  "startMs": 995000,
+  "endMs": 1075000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Intro",
+  "startMs": 0,
+  "endMs": 40000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Harness Engineering",
+  "startMs": 40000,
+  "endMs": 311000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Scarce Resources",
+  "startMs": 311000,
+  "endMs": 579000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Guarding Quality",
+  "startMs": 579000,
+  "endMs": 803000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Prompting Agents",
+  "startMs": 803000,
+  "endMs": 1115000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Q&A Intro",
+  "startMs": 1115000,
+  "endMs": 1192000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Harness & Tools",
+  "startMs": 1192000,
+  "endMs": 1695000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Adopting Agents",
+  "startMs": 1695000,
+  "endMs": 2019000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Scaling & Review",
+  "startMs": 2019000,
+  "endMs": 2369000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Tokens & Future",
+  "startMs": 2369000,
+  "endMs": 2758000
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Outro",
+  "startMs": 2758000,
+  "endMs": 2781000
+ }
+]

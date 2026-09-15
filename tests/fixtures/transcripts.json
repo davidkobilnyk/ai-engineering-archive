@@ -1,0 +1,20 @@
+[
+ {
+  "talkSlug": "graphrag",
+  "title": "GraphRAG: The Marriage of Knowledge Graphs and RAG: Emil Eifrem",
+  "jsonUrl": "https://ai.engineer/api/data/transcript?slug=graphrag&format=json",
+  "csvUrl": "https://ai.engineer/api/data/transcript?slug=graphrag&format=csv"
+ },
+ {
+  "talkSlug": "structured-llm-outputs-with-pydantic",
+  "title": "Pydantic is all you need: Jason Liu",
+  "jsonUrl": "https://ai.engineer/api/data/transcript?slug=structured-llm-outputs-with-pydantic&format=json",
+  "csvUrl": "https://ai.engineer/api/data/transcript?slug=structured-llm-outputs-with-pydantic&format=csv"
+ },
+ {
+  "talkSlug": "harness-engineering",
+  "title": "Harness Engineering: How to Build Software When Humans Steer, Agents Execute — Ryan Lopopolo, OpenAI",
+  "jsonUrl": "https://ai.engineer/api/data/transcript?slug=harness-engineering&format=json",
+  "csvUrl": "https://ai.engineer/api/data/transcript?slug=harness-engineering&format=csv"
+ }
+]

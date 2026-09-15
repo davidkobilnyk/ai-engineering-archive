@@ -1,0 +1,176 @@
+[
+ {
+  "slug": "jason-liu",
+  "name": "Jason Liu",
+  "url": "https://ai.engineer/speakers/jason-liu",
+  "biography": "Jason Liu works on Developer Experience at OpenAI, where he helps developers get more from Codex, the Agents SDK, and the OpenAI API. His work spans developer education, open-source programs, and practical agent workflows. Prior to OpenAI he was the creator of Instructor, and taught developers how to build reliable AI applications.",
+  "jobTitle": "Developer Experience, OpenAI",
+  "organization": "OpenAI",
+  "portraitUrl": "/wf26/speakers/by-id/spk_jason_liu.jpg",
+  "profiles": {
+   "website": "https://jxnl.co/",
+   "github": "https://github.com/jxnl",
+   "linkedin": "https://www.linkedin.com/in/jxnlco",
+   "x": "https://x.com/jxnlco"
+  },
+  "affiliations": [
+   {
+    "organization": "OpenAI",
+    "eventSlug": "ai-engineer-world-s-fair-2026",
+    "eventYear": 2026
+   }
+  ],
+  "topics": [
+   {
+    "slug": "agent-engineering",
+    "name": "Agent engineering"
+   },
+   {
+    "slug": "apis-mcp-and-protocols",
+    "name": "APIs, MCP, and protocols"
+   },
+   {
+    "slug": "coding-and-developer-tools",
+    "name": "Coding and developer tools"
+   },
+   {
+    "slug": "developer-workflows-and-testing",
+    "name": "Developer workflows and testing"
+   },
+   {
+    "slug": "enterprise",
+    "name": "Enterprise"
+   },
+   {
+    "slug": "evals",
+    "name": "Evals"
+   },
+   {
+    "slug": "infrastructure-and-deployment",
+    "name": "Infrastructure and deployment"
+   },
+   {
+    "slug": "leadership",
+    "name": "Leadership"
+   },
+   {
+    "slug": "observability-and-reliability",
+    "name": "Observability and reliability"
+   },
+   {
+    "slug": "other-unclassified",
+    "name": "Other / unclassified"
+   },
+   {
+    "slug": "rag-context-and-search",
+    "name": "RAG, context, and search"
+   },
+   {
+    "slug": "reasoning-and-models",
+    "name": "Reasoning and models"
+   },
+   {
+    "slug": "safety-and-governance",
+    "name": "Safety and governance"
+   }
+  ],
+  "talkSlugs": [
+   "structured-llm-outputs-with-pydantic"
+  ]
+ },
+ {
+  "slug": "emil-eifrem",
+  "name": "Emil Eifrem",
+  "url": "https://ai.engineer/speakers/emil-eifrem",
+  "biography": "Emil Eifrem is the co-founder and CEO of Neo4j, the graph database and analytics leader that enabled investigative journalists to crack the Panama Papers leak, NASA to get to Mars two years faster, power discoveries in biodiversity and genomics sampling, cancer research, fraud detection, scientific research, and serve thousands of organizations worldwide including 75 of the Fortune 100. Graph uniquely organizes data in the same way that the human brain does in expressing the complex relationships, context and connections between data as data itself. By uncovering the web of relationships underlying our interconnected world, graph enables organizations to dynamically predict what happens when these relationships change and why. Emil created the category of graph databases and has devoted his professional life to building, innovating, and evangelizing graphs. Graph has since become the fastest-growing database category over the past decade. Neo4j’s series F funding round was also the largest in database history, valuing the company at more than $2B. Gartner predicts that by 2025, graph technologies will be used in 80% of data and analytics innovations — up from 10% in 2021 — facilitating rapid decision-making across the enterprise. Neo4j has become essential for enterprise GenAI in reducing hallucinations with knowledge graphs, serving as long-term memory for LLMs, and dramatically improving GenAI outcome accuracy, explainability, and transparency. Neo4j is headquartered in Silicon Valley. Emil is based in Sweden.",
+  "jobTitle": "CEO",
+  "organization": "Neo4j",
+  "portraitUrl": "/wf26/speakers/by-id/spk_emil_eifrem.jpg",
+  "profiles": {
+   "website": null,
+   "github": null,
+   "linkedin": null,
+   "x": "https://x.com/emileifrem"
+  },
+  "affiliations": [
+   {
+    "organization": "Neo4j",
+    "eventSlug": "ai-engineer-world-s-fair-2026",
+    "eventYear": 2026
+   },
+   {
+    "organization": "Neo4j",
+    "eventSlug": "ai-engineer-world-s-fair-2024",
+    "eventYear": 2024
+   }
+  ],
+  "topics": [
+   {
+    "slug": "agent-engineering",
+    "name": "Agent engineering"
+   },
+   {
+    "slug": "architecture",
+    "name": "Architecture"
+   },
+   {
+    "slug": "finance",
+    "name": "Finance"
+   },
+   {
+    "slug": "rag-context-and-search",
+    "name": "RAG, context, and search"
+   },
+   {
+    "slug": "safety-and-governance",
+    "name": "Safety and governance"
+   }
+  ],
+  "talkSlugs": [
+   "graphrag"
+  ]
+ },
+ {
+  "slug": "ryan-lopopolo",
+  "name": "Ryan Lopopolo",
+  "url": "https://ai.engineer/speakers/ryan-lopopolo",
+  "biography": "Ryan Lopopolo is a software engineer at OpenAI. He’s a product engineer who’s been aggressively scaling his own output with agent-driven development workflows—pushing toward a world where a prompt can scale an engineering team to as many GPUs as possible.",
+  "jobTitle": "Member of Technical Staff",
+  "organization": "OpenAI",
+  "portraitUrl": "/speakers/europe/ryan-lopopolo.jpg",
+  "profiles": {
+   "website": null,
+   "github": null,
+   "linkedin": "https://www.linkedin.com/in/ryanlopopolo/",
+   "x": "https://x.com/_lopopolo"
+  },
+  "affiliations": [
+   {
+    "organization": "OpenAI",
+    "eventSlug": "ai-engineer-europe-2026",
+    "eventYear": 2026
+   }
+  ],
+  "topics": [
+   {
+    "slug": "agent-engineering",
+    "name": "Agent engineering"
+   },
+   {
+    "slug": "developer-workflows-and-testing",
+    "name": "Developer workflows and testing"
+   },
+   {
+    "slug": "rag-context-and-search",
+    "name": "RAG, context, and search"
+   },
+   {
+    "slug": "safety-and-governance",
+    "name": "Safety and governance"
+   }
+  ],
+  "talkSlugs": [
+   "harness-engineering"
+  ]
+ }
+]
