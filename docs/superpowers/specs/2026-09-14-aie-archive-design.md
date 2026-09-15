@@ -212,7 +212,8 @@ As in section 6.
 
 Filters: `--event`, `--speaker`, `--topic`, `--talk`, `--after DATE`,
 `--before DATE`. Dates are ISO `YYYY-MM-DD` and compare against the talk's
-edition `start_date`. `--event` matches the normalized series or the edition
+edition `start_date`, inclusive at both ends. Talks with no resolved edition
+are excluded whenever a date filter is given. `--event` matches the normalized series or the edition
 title, case-insensitively. `--speaker` and `--topic` match name or slug,
 case-insensitively. `--talk` restricts to one slug.
 
@@ -243,8 +244,9 @@ Zero hits prints `No results` and exits 0.
 
 Prints the talk header (title, speakers, edition and dates, YouTube URL,
 duration), the chapter list, and the transcript for the range as
-`[MM:SS] text` lines. With no range, the whole transcript. Unknown slug
-exits 1.
+`[MM:SS] text` lines. Times are `MM:SS` with minutes allowed to exceed 59,
+so 1h05m is `65:00`. With no range, the whole transcript. Unknown slug
+exits 1. A range with `--from` after `--to` is a usage error, exit 2.
 
 `--json` emits `{talk: {...}, chapters: [...], segments: [...]}`.
 
