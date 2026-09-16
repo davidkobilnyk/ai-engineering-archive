@@ -383,6 +383,38 @@ Observed on 2026-09-16, one 21-minute slide talk, 1080p60 AV1, M1 8 GB:
 - Research focus shifts to deduplication (perceptual hash) and the missed
   low-contrast case rather than decode strategy.
 
+From the prep agent's review (all accepted, numbers set from the tests):
+
+- Trade-off: "A missed slide is roughly 10x worse than a duplicate. Target
+  under 2% misses on slide-based talks; up to 2 to 3x duplicates is
+  acceptable since deduplication can run later."
+- Compute budget: "Backfill may take up to 4 weeks, running only when the
+  laptop is on mains and idle; steady state must clear a 30-talk day in
+  under 6 hours; peak resident memory under 2 GB so the laptop stays
+  usable." Measured: extraction runs at 14 to 17x real time on 1080p60
+  AV1, so the 463-hour backfill is about 30 hours of CPU and a 30-talk day
+  about one hour.
+- Input file: "Extraction runs on the kept AV1 file, software-decoded."
+  Decided by the local test (hardware decode was 3 to 4x slower for this
+  workload; AV1 software decode is fast enough). Fetching a second VP9
+  stream is not needed; the two-pass low-resolution trick is optional.
+- Livestream day recordings: **excluded** from this brief; they belong to
+  the segmentation project. Say so explicitly.
+- Camera-only talks and panels: a sparse sample, one frame per 5 minutes,
+  so the artifact is never empty; same for camera-only talks with
+  background slides. Hard cap 400 frames or 150 MB per talk; the agent
+  should say how sampling degrades gracefully at the cap.
+- Ground truth: where a deck file exists (brief 07), its slide count and
+  page images are the ground truth; the validation set includes at least
+  three talks with decks; others are hand-labelled by the owner in under
+  20 minutes per talk.
+- Anomalies and timing: a talk yielding 0 or more than 1,500 detections
+  auto-falls back to one frame per 30 seconds and appends a line to a
+  weekly review list; never blocks. Record both detection time and capture
+  time; capture at detection plus 500 ms (the local test showed
+  same-second transition pairs from crossfades); the citation uses
+  detection time.
+
 ## 10-av1-decode-speed-test.md
 
 Fill the results table:
