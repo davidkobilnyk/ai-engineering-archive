@@ -186,6 +186,15 @@ From the prep agent's review (all accepted):
   returned 251 and 140 respectively, so "keep both, exclude DRC" is
   expressible directly. Brief 03 should add a language filter for the
   original track and confirm the DRC note text.
+- Fresh-upload format availability (brief 03 question 7): four talks
+  published on 2026-09-16 between 13:00Z and 14:30Z, checked at 15:44Z
+  (ages 1.2 to 2.8 hours), all already offered 1080p in AV1, VP9, and
+  H.264, and 720p in all three. So on this channel the full ladder is
+  present within about an hour of publication; the wait-or-refetch policy
+  can be "verify the fetched stream matches the intended codec and
+  resolution, and re-check once after 6 hours if it did not," rather than
+  a long hold. Sample of four; the agent should still look for documented
+  transcoding delays on long or 4K uploads.
 - Code 2025 Day 2 stream (`xmbSQz-PNMM`) exposes 26 YouTube chapters with
   talk titles and speakers at second resolution ("0:23:41 Stop Building
   Agents — Barry Zhang & Mahesh Murag"). This is usable ground truth for
