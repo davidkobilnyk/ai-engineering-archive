@@ -412,9 +412,13 @@ From the prep agent's review (all accepted) plus a feed fetch on 2026-09-16:
 - Observed 2026-09-16 (feed fetched directly): 15 entries. **Scheduled
   premieres appear in the feed before they air**, with `published` set to
   the scheduling time, not the air time: "Stop Chunking Like It's 2022"
-  had `published` 2026-09-15T07:36Z and aired around 12:00Z on the 16th,
-  and its `updated` moved to 09:26Z. A watcher keyed on `published` would
-  see an unaired premiere as a day-old video. Each entry carries a
+  had `published` 2026-09-15T07:36Z, its `updated` moved to 09:26Z on the
+  16th, and at 15:44Z on the 16th it **still had not aired** (yt-dlp:
+  "Premieres in 74 minutes"), more than 32 hours after its `published`
+  time. A watcher keyed on `published` would see an unaired premiere as a
+  day-old video, and a change in `updated` does not mean it aired. The
+  other premiere ("Pinecone 2.0") aired at about 13:00Z and had the full
+  1080p AV1/VP9/H.264 ladder 2.8 hours later. Each entry carries a
   `media:group` with `description`, so the feed also gives descriptions
   for the 15 most recent videos (relevant to brief 07). The channel posted
   four videos between 13:00Z and 14:30Z that day, one every 30 minutes,
