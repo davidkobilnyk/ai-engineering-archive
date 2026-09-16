@@ -163,6 +163,34 @@ From the prep agent's review (all accepted):
   all three. Also record each vendor's file-size and duration limits for
   direct upload, since 8-hour stream recordings may exceed them.
 
+## Quick checks run 2026-09-16 (evidence for 02, 03, 04, 06)
+
+- `yt-dlp -U` on the Homebrew install ran without complaint and reported
+  "up to date (stable@2026.08.19)". Whether `-U` would actually overwrite
+  files that Homebrew manages when an update exists is unverified; the
+  safe path is `brew upgrade yt-dlp` and the agent for brief 02 should
+  confirm which the job should use.
+- Format selector trial: `-f "bv*[height<=1080][protocol!*=m3u8]"
+  -S "res:1080,vcodec:av01:vp9:h264,fps:30,proto"` chose format 137
+  (H.264 1080p30, ~82 MB) on a 2024 talk, 399 (AV1 1080p60, ~42 MB) on the
+  Hugging Face talk, and 399 (AV1 1080p60, **~1.36 GB for the 8.4-hour
+  Paris 2025 Day 2 recording**). So a stream-day at best codec is about
+  1.4 GB, not the 5 to 15 GB estimated from camera-heavy panel rates;
+  correct 01 and 04 to about 3 to 5 GB per event. The `fps:30` preference
+  is moot when no 30 fps variant exists at that resolution and codec.
+- Audio variants on the Hugging Face talk: HLS audio (233, 234) to
+  exclude; DASH Opus at 49, 61, and 113 kbps (249, 250, 251) and AAC at 49
+  and 129 kbps (139, 140); all tagged `en-US original (default)`; no DRC
+  variants on this video (they exist on others). Selectors
+  `ba[acodec^=opus][format_note!*=DRC]` and `ba[acodec^=mp4a][format_note!*=DRC]`
+  returned 251 and 140 respectively, so "keep both, exclude DRC" is
+  expressible directly. Brief 03 should add a language filter for the
+  original track and confirm the DRC note text.
+- Code 2025 Day 2 stream (`xmbSQz-PNMM`) exposes 26 YouTube chapters with
+  talk titles and speakers at second resolution ("0:23:41 Stop Building
+  Agents — Barry Zhang & Mahesh Murag"). This is usable ground truth for
+  brief 06's confirmation test without any manual scrubbing.
+
 ## 04-livestream-recordings.md
 
 From the prep agent's review (all accepted) plus data gathered 2026-09-16:
