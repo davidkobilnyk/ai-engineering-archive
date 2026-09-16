@@ -223,17 +223,21 @@ From the prep agent's review (all accepted) plus data gathered 2026-09-16:
 
 From the prep agent's review (accepted; environment facts need the owner):
 
-- Q1 overnight state of the Mac: owner to state, in the form "N nights a
-  week: on desk, on mains, lid closed, no external display, drive
-  attached; otherwise in a bag or away." TBD.
-- Q2 the archive drive: type (bus-powered USB-C SSD, powered HDD, NAS),
-  filesystem (APFS, exFAT), attached only at the desk or also away. TBD.
-  If desk-only, "drive mounted" doubles as the home guard.
-- Q3 login state: state whether FileVault is on, whether the owner stays
-  logged in, and that a post-reboot wait for a password is acceptable, so
-  the researcher focuses on LaunchAgents rather than daemons. TBD (assume
-  FileVault on, stays logged in, post-reboot delay acceptable, unless the
-  owner says otherwise).
+- Q1 overnight state of the Mac (owner, 2026-09-16): today the lid is
+  usually closed at night without powering off. The owner is willing to
+  change routine for the project: **the default assumption is lid open, on
+  mains, display asleep, awake all night, drive attached.** The brief
+  should still cover closed-lid scheduled wake as the secondary case and
+  state what running awake overnight costs (power, battery management,
+  heat), since the owner asked.
+- Q2 the archive drive (measured): WD Elements 2 TB, USB, APFS, about
+  1.76 TB free; solid-state flag unreported over the USB bridge, so treat
+  it as a **spinning disk powered from the USB cable**, which spins down
+  when idle and takes seconds to wake. Desk-only. "Drive mounted" doubles
+  as the home guard.
+- Q3 login state (measured): **FileVault is on.** The owner stays logged
+  in; a wait for the password after a reboot is acceptable. Focus on
+  LaunchAgents, not daemons.
 - Q4 run window: give the window in US Eastern and the rule "no new video
   starts after the window ends; an in-progress download finishes." Idle
   detection is an optional second guard, not a requirement. Window TBD
