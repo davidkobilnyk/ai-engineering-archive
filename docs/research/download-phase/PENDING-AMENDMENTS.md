@@ -256,6 +256,47 @@ From the prep agent's review (accepted; environment facts need the owner):
   macOS CLI; check scutil or app automation)? What is the reliable guard
   if neither works (public-IP check before running)?
 
+## 06-audio-fingerprinting.md
+
+From the prep agent's review (all accepted, with one data point added):
+
+- Direction: **index the talk corpus as the database** (the canonical use
+  for audfprint, Panako, Olaf; gives duplicate detection for free) and
+  **query with sliding windows of the stream**. State it; ask the agent to
+  note any tool where the inverse also works.
+- Numeric targets: offset accuracy within ±0.5 s (citations are whole
+  seconds); zero talk-level false positives on a ~10-talk test, with a
+  reported confidence score the later project can threshold; recall of at
+  least 95% of talks present.
+- Reframe "compute now": the unprocessed audio is retained for every file,
+  so fingerprints can be recomputed later as a background job. The
+  deliverable is (a) tool choice plus test, (b) an optional cheap
+  compute-now with the chosen tool, schema-versioned and explicitly
+  discardable. Ask whether any stored intermediate is tool-agnostic enough
+  to keep (likely none). The brief's "awkward to add later" claim is
+  withdrawn.
+- Hard requirement in the comparison: the tool returns a **time mapping**
+  (multiple offset clusters with match density), not one best offset,
+  because cut talks can have removed sections and added intros.
+- Environment filters: Java or C via Homebrew acceptable, Python preferred;
+  index must run under about 2 GB resident on the 8 GB machine; size for
+  2,000 hours of references.
+- Ground truth for the confirmation test: use a past conference-day
+  recording that carries **YouTube chapters**, since those are per-talk
+  boundaries already: Code 2025 Day 2 (`xmbSQz-PNMM`, 9.0 h, 26 chapters)
+  or Europe 2026 Day 1 (`O_IMsEg91g8`, 9.2 h, 23 chapters), both with
+  their talks present in the corpus (Code 2025: 67 talks; Europe 2026: 187
+  talks). Cross-check three talk starts by manual scrubbing and by aligning
+  the two caption tracks. Note: Paris 2025's Day 2 recording has no
+  chapters and its talks do not appear in the corpus under a Paris 2025
+  event, so it is a poor ground-truth choice despite being the most
+  comparable event.
+- Reword question 7: rank the alternatives (caption-track text alignment,
+  title-slide detection in keyframes, schedule times) and say which should
+  run **alongside** fingerprinting as a consistency check. Caption
+  alignment is free and independent, so it is a cross-check, not a
+  fallback.
+
 ## 09-keyframe-extraction-for-slides.md
 
 Observed on 2026-09-16, one 21-minute slide talk, 1080p60 AV1, M1 8 GB:
