@@ -297,6 +297,72 @@ From the prep agent's review (all accepted, with one data point added):
   alignment is free and independent, so it is a cross-check, not a
   fallback.
 
+## 07-slide-decks-from-description-links.md
+
+From the prep agent's review (all accepted):
+
+- The survey is done by the owner's side, not the agent: a stratified
+  sample of about 200 talk descriptions (weighted to 2025 and 2026 plus the
+  recent placeholders) fetched with yt-dlp on 2026-09-16, tallied by link
+  host and by event. Results go into the brief as
+  `data/description-links-2026-09-16.md`; question 1 becomes "interpret
+  this table." Fallback rule for the agent: state exactly how many
+  descriptions were read; no extrapolated counts.
+- Build threshold: "Build the deck-fetch step now if at least 15% of 2025
+  to 2026 talks link a deck fetchable without login and the step fits in
+  about one setup hour; otherwise record the links (cheap) and fetch
+  later."
+- Scope: fetch **decks only** (PDF, Google Slides export, Speaker Deck,
+  Notion). For every other link type store the resolved URL, HTTP status,
+  and page title at fetch time. Drop other types from questions 2 and 5.
+- Downstream use: (i) now, a name and term dictionary for the LLM
+  corrector, so extraction advice should optimize for proper nouns, code
+  identifiers, and URLs; (ii) later, an indexed searchable artifact.
+- Two link-resolution passes: at download time and again when the edited
+  upstream transcript arrives (descriptions are edited and "slides here"
+  links get added days later). Add the question: how often do links appear
+  only in later description edits.
+- Weighting: report the overall figure but decide on the 2025 to 2026
+  subset, broken out by event series (World's Fair versus regional).
+
+## 08-channel-watching-feed-and-data-api.md
+
+From the prep agent's review (all accepted) plus a feed fetch on 2026-09-16:
+
+- Latency budget: detection within 6 hours of upload during event weeks,
+  within 24 hours otherwise.
+- Offline tolerance: assume the laptop may be offline up to 7 days; the
+  watcher must recover with zero misses by walking the uploads playlist
+  back to the last-seen video ID, never a fixed page count. Hard
+  requirement.
+- Responsibility boundary: the watcher emits video ID, title, publish
+  time, duration, premiere or live status, and playlist membership. The
+  full metadata snapshot (view and like counts, heatmap, comments,
+  description) is the download job's, via yt-dlp. List the exclusions.
+- Live streams: this phase handles the finished recording only. Reword
+  question 7: how does the finished recording appear (same ID as the live
+  event? when does it get a duration?) so the fetch job picks it up like
+  any other video. Drop trigger-during-live language.
+- Premiere retry: re-check at scheduled start plus expected duration (or
+  plus 2 hours if unknown), then hourly until the broadcast status is
+  "none" and a duration exists; ask the agent to confirm the signals.
+- Event-week cadence: adaptive rule as the primary design (poll faster
+  whenever the last poll found something new), calendar as an optional
+  seed.
+- Instruct the agent to fetch the RSS feed and the channel playlists page
+  during research and report what it saw; mark every Data API claim as
+  documentation-only with the local key test that confirms it.
+- Observed 2026-09-16 (feed fetched directly): 15 entries. **Scheduled
+  premieres appear in the feed before they air**, with `published` set to
+  the scheduling time, not the air time: "Stop Chunking Like It's 2022"
+  had `published` 2026-09-15T07:36Z and aired around 12:00Z on the 16th,
+  and its `updated` moved to 09:26Z. A watcher keyed on `published` would
+  see an unaired premiere as a day-old video. Each entry carries a
+  `media:group` with `description`, so the feed also gives descriptions
+  for the 15 most recent videos (relevant to brief 07). The channel posted
+  four videos between 13:00Z and 14:30Z that day, one every 30 minutes,
+  which is the burst shape the watcher must handle.
+
 ## 09-keyframe-extraction-for-slides.md
 
 Observed on 2026-09-16, one 21-minute slide talk, 1080p60 AV1, M1 8 GB:
