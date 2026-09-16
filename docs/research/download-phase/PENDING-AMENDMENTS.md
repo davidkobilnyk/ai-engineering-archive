@@ -166,7 +166,89 @@ From the prep agent's review (all accepted):
   all three. Also record each vendor's file-size and duration limits for
   direct upload, since 8-hour stream recordings may exceed them.
 
+## 04-livestream-recordings.md
+
+From the prep agent's review (all accepted) plus data gathered 2026-09-16:
+
+- Capture the **full video, same policy as talks** (best codec, 1080p,
+  video-only plus audio-only). Delete the "audio and keyframes" phrasing.
+- Attach `data/streams-tab-2026-09-16.json`: the channel's Streams tab
+  (32 recordings) with per-video upload date, availability, duration, max
+  resolution, codecs, and chapter count. Convert question 2 from "browse
+  the channel" to "analyze this file." Findings the brief should state:
+  - All 32 recordings back to Summit 2023 are still **public**. The channel
+    does not unlist or delete stream recordings. A missed stage-day is
+    therefore unlikely; the simplest capture path is justified.
+  - The channel streams **one stage per day** (the keynote stage), not
+    every stage: WF 2026 had three recordings of 8.6 to 9.2 h (one per
+    day), Europe 2026 two, Singapore two, Miami two, Code 2025 two. Paris
+    2025 had a full 8.4 h Day 2 and only a 1.4 h "Opening Keynotes" block
+    for Day 1. Correct brief 01's volume estimate accordingly: per event,
+    2 to 3 recordings of 8 to 10 h, roughly 5 to 15 GB at 1080p AV1, not
+    40 to 100 h.
+  - Ended-stream recordings keep 1080p. AV1 is present on recordings from
+    Paris 2025 (Sept 2025) onward; earlier ones are H.264 only, matching
+    the mid-2025 codec cutover seen on talks. One Miami 2026 day has VP9
+    and H.264 but no AV1.
+  - The recording's `upload_date` equals the stream day and `live_status`
+    is `was_live`; the flat Streams listing carries id, title, duration,
+    and live status but not dates.
+  - Many recordings carry **YouTube chapters** (20 to 39 on recent
+    multi-talk days), which are per-talk boundaries from the description:
+    ground truth for the later segmentation project. WF 2026's three
+    recordings and Paris 2025 Day 2 have none, so it is not guaranteed.
+- Add Paris 2025 to the events to examine; it is the most comparable.
+- New question: a **discovery method** rather than fixed URLs: list the
+  Streams tab (`--flat-playlist` on `/@aiDotEngineer/streams`), filter
+  `live_status == was_live` and upload date within the event window, so
+  the same script works for NYC, Shanghai, and Code without edits.
+- New deliverable item: a **dry-run command** to run this week against the
+  Paris 2025 Day 2 recording (`wyUdpmj9-64`, 8.4 h, AV1 available) so the
+  Paris 2026 script is tested before Sept 23.
+- Timezone: the owner is in US Eastern (America/New_York). Paris days end
+  about 18:00 CEST, which is 12:00 Eastern. Add: "Assume the job runs at
+  its scheduled time; scheduling and laptop wake are brief 05's problem"
+  (the prep agent wrote brief 02; scheduling is 05).
+- Schedule ground truth: as of 2026-09-16 there is **no machine-readable
+  Paris 2026 schedule** in the ai.engineer data (the conference registry
+  lists `scheduleUrl: null` for Paris 2026). Tell the agent, and ask for a
+  fallback: snapshot the web schedule page at T-1 day and T+1 day, plus the
+  stream description (chapters, if present) and comments, all timestamped.
+- Loss tolerance: "A missed stage-day is tolerable for Paris; prefer the
+  simplest capture, and only recommend record-from-start if the channel's
+  history shows recordings vanishing within 48 hours." The data above
+  shows they do not.
+
 ## 05-unattended-jobs-on-a-laptop.md
+
+From the prep agent's review (accepted; environment facts need the owner):
+
+- Q1 overnight state of the Mac: owner to state, in the form "N nights a
+  week: on desk, on mains, lid closed, no external display, drive
+  attached; otherwise in a bag or away." TBD.
+- Q2 the archive drive: type (bus-powered USB-C SSD, powered HDD, NAS),
+  filesystem (APFS, exFAT), attached only at the desk or also away. TBD.
+  If desk-only, "drive mounted" doubles as the home guard.
+- Q3 login state: state whether FileVault is on, whether the owner stays
+  logged in, and that a post-reboot wait for a password is acceptable, so
+  the researcher focuses on LaunchAgents rather than daemons. TBD (assume
+  FileVault on, stays logged in, post-reboot delay acceptable, unless the
+  owner says otherwise).
+- Q4 run window: give the window in US Eastern and the rule "no new video
+  starts after the window ends; an in-progress download finishes." Idle
+  detection is an optional second guard, not a requirement. Window TBD
+  (proposed default 01:00 to 07:00 Eastern, plus a midday pass in event
+  weeks).
+- Q5 alerting: name the channel already on the owner's phone; a free
+  hosted dead-man's-switch (pings on success, alerts after N days of
+  silence) is acceptable; N = 2; budget $0. Channel TBD.
+- Q6 boundary: "Treat 'download one video' as a black-box step that is
+  idempotent when re-run (brief 01). Brief 05 owns the manifest, the lock,
+  queue ordering, and what happens when the step is killed mid-run."
+- Q7 dependencies: prefer built-ins (launchd, pmset, caffeinate); reach for
+  third-party schedulers only if launchd provably cannot do it. Job shape:
+  a Python script in a virtual environment, invoked by launchd, calling
+  yt-dlp as a subprocess.
 
 - Add: Proton VPN on macOS 15. Can a scheduled command-line job (yt-dlp
   under launchd) be excluded from the tunnel by app-based split tunnelling?
