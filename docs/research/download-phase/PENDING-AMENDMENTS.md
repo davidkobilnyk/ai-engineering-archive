@@ -79,6 +79,53 @@ From the prep agent's review (accepted with refinements):
   companion packages); question 4 an operation-by-failure-signature table,
   including "succeeding but throttled" as a state distinct from "failed."
 - Note Deno was installed automatically as a dependency by Homebrew.
+- Add ground truth from the owner's machine (2026-09-16) to "What is
+  already known":
+  - `yt-dlp 2026.08.19` (Homebrew formula `yt-dlp 2026.8.19_1`, which is a
+    pip install into Homebrew's `python@3.14 3.14.7`); `ffmpeg 9.0.1_1` and
+    `deno 2.9.6` via Homebrew; Node v24.19.0 present via nvm (user shell
+    only, not on a scheduled job's PATH); Bun absent.
+  - `yt-dlp -v` on a caption fetch reports: `exe versions: ffmpeg 9.0.1,
+    ffprobe 9.0.1`; optional libraries include `yt_dlp_ejs-0.8.0`,
+    `curl_cffi-0.16.2`, `requests`, `websockets`; `JS runtimes: deno-2.9.6`;
+    `JS Challenge Providers: bun (unavailable), deno, node (unavailable),
+    quickjs (unavailable)`; `PO Token Providers: none`; it fetched the
+    "visionos player API JSON" and logged "Detected experiment to bind GVS
+    PO Token to video ID for web client". Caption and media fetches succeed
+    in this configuration with no PO token provider.
+- Paste the excerpt the brief refers to (from research report "Brief B",
+  2026-09): "Current yt-dlp also requires an external JavaScript runtime
+  (Deno recommended; Node/Bun work) plus the yt_dlp_ejs package to solve
+  challenges and mint tokens. ... Stable releases ship roughly every few
+  weeks (current stable 2026.08.19; nightly master builds ship daily).
+  YouTube breaks extractors every few weeks; a weekly auto-update in the
+  scheduled job is the recommended pattern, with version-pinning as a
+  rollback. ... run `yt-dlp -U` (binary) or `pip install -U yt-dlp` weekly
+  / before each burst, log the result, and keep a last-known-good pin to
+  roll back if an update regresses. One production operator (~8,800
+  jobs/day) reported that pulling the latest build weekly beat pinning,
+  because pinning left them broken mid-week when YouTube shipped a player
+  change." The agent should verify these claims, in particular whether
+  `yt_dlp_ejs` and a JS runtime are required or merely recommended for
+  the operations listed, and what `-U` does for a Homebrew install.
+- Scheduling is owned by brief 05; 02 assumes its conclusions and states
+  the working assumption: launchd; feed polled hourly while awake; media
+  downloads in a nightly window plus a midday pass in event weeks; runs
+  skipped when off the home network, on the VPN, or on battery. Replace
+  "failed for two nights" with "failed on two consecutive runs".
+- Update policy decisions (owner to confirm): (a) evaluate reactive update
+  on detected extractor failure, with automatic rollback, as the primary
+  policy and weekly update as the fallback; (b) Homebrew dependencies
+  (ffmpeg, Deno) are pinned and updated manually in the owner's weekly
+  hour; (c) smoke-test video: `FLUoowDJg4I` ("How I automate my own job at
+  Hugging Face using agents", World's Fair 2026, has an edited upstream
+  transcript and was used in all local tests); (d) rollback is automatic,
+  and the alert states which version is now in use.
+- Alerting constraints (owner to fill in): the alert must reach the owner
+  off-device, since the failure case is "the job broke while the owner was
+  away from the Mac"; a local macOS notification alone is insufficient.
+  Owner's preferences on email versus a chat webhook and on creating new
+  third-party accounts: TBD.
 
 ## 03-format-selection-and-audio-for-stt.md
 
@@ -88,6 +135,36 @@ From the prep agent's review (accepted with refinements):
   both exist.
 - The VP9 file was delivered in an mp4 container, not webm; the job should
   not assume container by codec.
+
+From the prep agent's review (all accepted):
+
+- New question 7: fresh uploads often expose only low-resolution H.264 at
+  first, with VP9 and AV1 at 1080p appearing hours later as YouTube
+  finishes transcoding. Ask: how to detect that a fresh upload's format
+  list is still incomplete, and a wait-or-refetch policy so the archive
+  ends up with the intended stream. Scheduling of re-checks belongs to
+  brief 01; add a one-line cross-reference in both.
+- New question: do the same selectors work on ended-livestream recordings
+  (8+ hour files, format set that changes for a day or more after the
+  stream ends, possible absence of 1080p), and what differs? Cross-reference
+  brief 04.
+- Audio: keep **both** the best Opus and the best AAC stream (about 40 MB
+  per talk total), excluding dynamic-range-compressed ("drc") variants and
+  requiring the original-language track (auto-dubbed tracks exist). Ask
+  for the selector that guarantees both. The agent recommends which feeds
+  speech-to-text.
+- Define "unprocessed": no transcoding, ever; a lossless remux is allowed
+  only if the agent shows the elementary stream is unchanged. Hash the
+  elementary stream, not the container, so the hash survives a remux.
+  Judge the merge-or-separate answer against this rule.
+- Deliverable form: the pipeline calls yt-dlp as a **subprocess** (CLI),
+  not the Python API, to isolate its frequent releases from the process
+  and to use the documented stdout/JSON contract. Ask for the `-J` and
+  `--print` output shapes the Python side will parse.
+- Speech-to-text vendors: Deepgram, ElevenLabs Scribe, and AssemblyAI are
+  the closed candidate set; the kept format must be accepted natively by
+  all three. Also record each vendor's file-size and duration limits for
+  direct upload, since 8-hour stream recordings may exceed them.
 
 ## 05-unattended-jobs-on-a-laptop.md
 
