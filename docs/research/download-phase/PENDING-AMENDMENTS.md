@@ -121,11 +121,8 @@ From the prep agent's review (accepted with refinements):
   Hugging Face using agents", World's Fair 2026, has an edited upstream
   transcript and was used in all local tests); (d) rollback is automatic,
   and the alert states which version is now in use.
-- Alerting constraints (owner to fill in): the alert must reach the owner
-  off-device, since the failure case is "the job broke while the owner was
-  away from the Mac"; a local macOS notification alone is insufficient.
-  Owner's preferences on email versus a chat webhook and on creating new
-  third-party accounts: TBD.
+- Alerting (closed by the owner): a glanceable status file on the Mac is
+  primary, email secondary; see brief 05 notes. Keep it to a paragraph.
 
 ## 03-format-selection-and-audio-for-stt.md
 
@@ -243,9 +240,13 @@ From the prep agent's review (accepted; environment facts need the owner):
   detection is an optional second guard, not a requirement. Window TBD
   (proposed default 01:00 to 07:00 Eastern, plus a midday pass in event
   weeks).
-- Q5 alerting: name the channel already on the owner's phone; a free
-  hosted dead-man's-switch (pings on success, alerts after N days of
-  silence) is acceptable; N = 2; budget $0. Channel TBD.
+- Q5 alerting (closed by the owner, 2026-09-16): the owner checks the
+  Mac more often than email or text, so the primary signal is a
+  **status file or log the owner can glance at** (last successful run,
+  last failure, current yt-dlp version). Email is the secondary channel; a
+  free hosted dead-man's-switch with a 2-day silence threshold is
+  acceptable if it is trivial to set up; budget $0. The researcher should
+  keep this to a paragraph; it is not a design problem.
 - Q6 boundary: "Treat 'download one video' as a black-box step that is
   idempotent when re-run (brief 01). Brief 05 owns the manifest, the lock,
   queue ordering, and what happens when the step is killed mid-run."
