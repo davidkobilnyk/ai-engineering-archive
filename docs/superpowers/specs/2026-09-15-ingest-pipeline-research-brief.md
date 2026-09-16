@@ -145,7 +145,28 @@ name mention in ten was wrong, versus one in 240 in the edited corpus.
 **Self-transcription with Whisper-class models does not remove the name
 problem; it needs a correction stage to reach upstream quality.**
 
-### 3.4 Available reference data
+### 3.4 YouTube's own caption track
+
+The 46 auto-caption talks in the corpus are YouTube's automatic English
+caption track, word for word (verified on one talk; ten others re-fetched
+two weeks after the corpus date were unchanged, so the tracks do not
+improve on their own). Third-party "YouTube to transcript" sites serve this
+same track.
+
+Its quality varies a lot per video and is not predictable from metadata.
+On the Hugging Face talk from section 3.3 it matched the edited transcript
+on all 61 name mentions with a 3.7% filler-insensitive word error rate,
+better than local Whisper. Across nine other edited 2026 talks it got 85 of
+105 name mentions right (about 81%), with word error rates from 2.3% to
+17.2%, median about 6.5%. Net: roughly Whisper-class on average, sometimes
+much better, sometimes much worse; not a substitute for the correction
+stage.
+
+It is, however, a free, zero-compute source that needs only a caption fetch
+rather than an audio download, and it is an independent second machine
+transcript of every talk. Both properties matter for section 5.
+
+### 3.5 Available reference data
 
 Every upstream talk record carries a YouTube `videoId`, so a self-produced
 transcript can be matched to its upstream replacement by ID. The 46
@@ -216,8 +237,15 @@ every capability claim.
 
 ### 5.2 Transcription
 
-4. **Candidates.** Hosted services and local models the author knows of,
-   to be verified and extended: hosted, in no order: Deepgram, AssemblyAI,
+4. **Candidates.** Include **YouTube's automatic caption track** as a
+   zero-cost baseline candidate (section 3.4), assessed on the same terms as
+   the others and separately for its acquisition properties: no audio
+   download, lighter terms-of-service exposure, and whether caption fetches
+   from cloud addresses are bot-checked the way audio downloads are. Also
+   whether it is good enough on its own as a same-day provisional transcript
+   before the corrected one is ready. Then hosted services and local models
+   the author knows of, to be verified and extended: hosted, in no order:
+   Deepgram, AssemblyAI,
    Amazon Transcribe, OpenAI transcription models, Google Cloud Speech,
    ElevenLabs Scribe, Mistral Voxtral, Groq-hosted Whisper, Speechmatics,
    Rev.ai. Local: Whisper large-v3 and turbo via whisper.cpp, faster-whisper,
@@ -248,6 +276,12 @@ every capability claim.
 8. **Division of labor.** If the transcriber's own keyterm biasing is good
    enough, does a correction pass still pay for itself? Can the same LLM
    pass do names and general errors, or should general errors be left alone?
+   And: YouTube's caption track and a Whisper-class transcript of the same
+   talk disagree on precisely the spans that need correction (section 3.4).
+   Does a correction pass that sees two independent transcripts outperform
+   one that sees either alone, and what does the literature on system
+   combination or multi-hypothesis error correction say? This is cheap to
+   test with the paired data already on hand.
 9. **Cost and model.** Per-talk token counts are roughly 6,000 to 15,000
    input for a whole transcript. Which Claude model and settings are
    appropriate for a closed-vocabulary correction task, and what does a
