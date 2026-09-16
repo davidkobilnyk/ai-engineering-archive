@@ -1,9 +1,11 @@
 # Shared context for the download-phase research briefs
 
-Date: 2026-09-16. This document accompanies nine research briefs (01 to 09).
-Read it first. It explains the project, what has been decided, what has been
-measured, the constraints, and how to write the deliverable. Each brief is
-self-contained given this document; no other files are needed.
+Date: 2026-09-16 (revised the same day after local measurements and a
+review round). This document accompanies the research briefs 01 to 09.
+Read it first. It explains the project, what has been decided, what has
+been measured, the constraints, and how to write the deliverable. Each
+brief is self-contained given this document; no other files are needed.
+Brief 07 has been retired (see its file for why).
 
 ## 1. The project in one paragraph
 
@@ -44,26 +46,32 @@ and storing them.
 
 - Channel: `https://www.youtube.com/channel/UCLKPca3kwwd-B59HNr-_lvA`
   (handle `@aiDotEngineer`). Talks are posted as individual videos, typically
-  in batches of 5 to 30 per day after an event. Conference days are also
-  livestreamed per stage; the stream recordings remain as videos afterward.
-- Scheduled **premieres** appear in the channel's upload listing hours before
-  they air, with no duration and no downloadable media.
+  in batches of 5 to 30 per day after an event; on 2026-09-16 the channel
+  posted four in ninety minutes, one every half hour. Conference days are
+  also livestreamed, **one stage per day** (the keynote stage), and the
+  recordings remain on the channel as ordinary videos afterward: all 32
+  stream recordings back to 2023 were still public on 2026-09-16.
+- Scheduled **premieres** appear in the channel's upload listing and in the
+  RSS feed hours to more than a day before they air, with no duration and no
+  downloadable media, and with the feed's `published` time set to when they
+  were scheduled, not when they air.
 - **Codecs**: every video uploaded since mid-2025 offers AV1, VP9, and H.264
   streams; videos uploaded before that (about 215 talks) offer H.264 only.
-  Measured sizes for a 21-minute slide talk: 1080p AV1 about 40 MB, 1080p VP9
-  about 135 MB, 1080p H.264 about 470 MB. Camera-heavy panels are 5 to 10
-  times larger per minute. Audio-only streams are about 129 kbps, about
-  20 MB per talk.
+  Fresh uploads have the full ladder within about an hour of publication
+  (four talks checked at 1.2 to 2.8 hours old all had 1080p in all three
+  codecs). Measured sizes: a 21-minute slide talk is about 40 MB at 1080p
+  AV1, 135 MB VP9, 470 MB H.264; camera-heavy panels are 5 to 10 times
+  larger per minute; an 8.4-hour conference stream recording (slides and a
+  podium) is about 1.4 GB at 1080p AV1. Audio-only streams are about 113
+  kbps Opus or 129 kbps AAC, about 20 MB per talk each.
 - **Automatic captions**: every talk has an English automatic caption track
   (codes `en` and `en-orig`, identical text). Quality varies per video, from
   near-perfect to poor on names. The caption text **drifts over time**: 2 of
   10 tracks re-fetched two weeks apart had changed by a few percent. No
   uploaded (manual) caption tracks were found.
-- The `yt-dlp` tool (installed from PyPI into a Python virtual environment)
-  has been used successfully from the owner's Mac for audio, video format
-  listing, caption tracks (json3, vtt, srv1), channel listings, and upload
-  dates. The official YouTube caption download API is owner-only and is a
-  dead end.
+- Descriptions follow a fixed template (talk page on ai.engineer, speakers'
+  LinkedIn and X profiles, sometimes a company site). A 205-description
+  survey found one slide-deck link and about one GitHub link per five talks.
 
 ## 4. Decisions already made (do not reopen)
 
@@ -73,25 +81,48 @@ and storing them.
   cookies, proof-of-origin token providers, residential proxies) need
   ongoing maintenance the owner does not want. **Do not research cloud
   acquisition, cookies, token providers, or proxies.**
-- Transcription and correction are hosted APIs called from the Mac. Not
-  part of these briefs.
+- **The owner runs Proton VPN by default, and the job must not run through
+  it.** The VPN's exit is a datacenter host, and downloads through it were
+  rate-shaped to a fifteenth of the speed. Either the job is excluded from
+  the tunnel or it runs in a window with the VPN off. The home-network
+  guard must check that the public address belongs to the ISP, not just
+  the Wi-Fi name.
+- **Run cadence.** The channel feed is polled hourly (a plain RSS fetch, no
+  scraping exposure), faster when the last poll found something new. Media
+  downloads run in one nightly window, 01:00 to 07:00 US Eastern, plus a
+  midday pass during event weeks; no new video starts after the window
+  ends, an in-progress download finishes. Nothing runs unless the Mac is on
+  the home network, off the VPN, and on mains power; otherwise the run is
+  skipped and the queue accumulates.
+- Transcription and correction are hosted APIs called from the Mac. The
+  transcription vendors under consideration are Deepgram, ElevenLabs
+  Scribe, and AssemblyAI, a closed set. Not part of these briefs beyond
+  input-format constraints.
 - **Keep the full video** at the best codec offered (prefer AV1, then VP9,
-  then H.264, at 1080p), on a local multi-terabyte drive the owner already
-  has. Also keep: the audio stream unprocessed, keyframes extracted on scene
-  changes at 1080p, the caption track, and a metadata snapshot at fetch time
-  (title, description and the links in it, upload date, duration, playlist
-  membership, view and like counts, the "most replayed" heatmap, comments),
-  a content hash, and an audio fingerprint.
+  then H.264, at 1080p, prefer 30 fps where both exist, DASH not HLS), on a
+  local 2 TB drive. Also keep: the best Opus and the best AAC audio streams
+  unprocessed (no transcoding ever; lossless remux only with proof the
+  elementary stream is unchanged; hash the elementary stream), keyframes
+  extracted on scene changes at 1080p from the stored AV1 file, the caption
+  track as json3, and a metadata snapshot at fetch time (title, description
+  and every URL in it with status and title, upload date, duration,
+  playlist membership, view and like counts, the "most replayed" heatmap,
+  comments), a content hash, and an audio fingerprint if brief 06
+  recommends one.
 - **The YouTube video ID is the primary key** for everything. Every artifact
   is stored under it with the fetch time and a schema version. Timestamps in
   all artifacts are milliseconds from the video's own start, so that
   citations (`https://www.youtube.com/watch?v=ID&t=SECONDS`) stay correct.
+- The pipeline calls yt-dlp as a **subprocess** (command line), not through
+  its Python API, so that yt-dlp's frequent releases stay isolated and its
+  documented stdout and JSON contract is what the code parses.
 - The owner accepts using `yt-dlp` against YouTube's terms of service for
   this private, non-commercial archive of public conference talks that the
   channel itself transcribes. **Do not re-litigate the terms of service.**
-- A livestream capture-and-segmentation project follows this one. For now
-  the owner only wants to capture each conference day's stream recording
-  and keep its audio and keyframes.
+- A livestream capture-and-segmentation project follows this one. In this
+  phase each conference day's stream recording is captured after the day
+  ends, with the same video and audio policy as talks; segmenting it into
+  talks is not in scope.
 
 ## 5. Constraints and priorities
 
@@ -100,11 +131,32 @@ days, (3) unattended operation with at most **1 hour per week** of the
 owner's attention, (4) cost at most **$40 per month** averaged over the year.
 Initial setup should fit in about 5 hours of the owner's time.
 
-Environment: Apple M1 MacBook, 8 GB memory, macOS 15, Homebrew, Python 3.13,
-a home broadband connection (assume typical residential upload and download
-speeds; the owner has not reported a data cap). The laptop sleeps and is
-sometimes closed or away. The M1 has hardware decoders for H.264 and VP9 but
-**not for AV1**.
+Environment, measured on 2026-09-16:
+
+- Apple M1 MacBook, 8 GB memory, macOS 15.4.1, FileVault on, owner stays
+  logged in. Homebrew present. Python 3.13 for the archive; Homebrew's
+  Python 3.14 hosts yt-dlp.
+- Installed: yt-dlp 2026.08.19 (Homebrew formula, which pulled in Deno
+  2.9.6 as the JavaScript runtime and carries `yt_dlp_ejs` 0.8.0), ffmpeg
+  9.0.1 with libdav1d. Node 24 exists only in the user's interactive shell
+  via nvm; no Bun.
+- The M1 has hardware decoders for H.264 and VP9 but not AV1. Measured:
+  software AV1 decode of 1080p60 runs at about 14x real time; hardware
+  decode through VideoToolbox was 3 to 4x real time for a decode-to-CPU
+  workload and is not to be used.
+- Home connection: Charter Spectrum residential, about 340 Mbps down and 39
+  Mbps up, idle latency 33 ms, IPv6 available, no carrier-grade NAT, no
+  known data cap (owner to confirm on the account page). Sustained
+  download from YouTube on this line: about 6.5 MB/s for DASH streams, 3.2
+  MB/s for HLS variants, with brief stalls at chunk boundaries every 10 MB
+  or so. Through the VPN: 0.2 to 0.45 MB/s. The 240 GB backfill is about
+  10 hours of transfer on the home line.
+- Archive drive: WD Elements 2 TB, USB, APFS, about 1.76 TB free; treat as
+  a spinning disk powered from the cable, desk-only, spins down when idle.
+- Overnight default for the project: laptop on the desk, on mains, lid
+  open, display asleep, awake all night, drive attached. The owner is
+  willing to keep this routine; closed-lid operation is a secondary case.
+- Timezone: US Eastern (America/New_York).
 
 ## 6. How to write the deliverable
 
@@ -113,14 +165,19 @@ sometimes closed or away. The M1 has hardware decoders for H.264 and VP9 but
 - **Date every citation** and every price. Distinguish, explicitly, between
   official documentation, peer-reviewed or measured results, vendor claims,
   and community reports. When sources conflict, say so and say which you
-  trust and why.
+  trust and why. yt-dlp's YouTube extractor changes monthly: verify every
+  flag against the README at version 2026.08.19 and check release notes for
+  the last 90 days; where evidence is anecdotal or unknowable, say so and
+  give a conservative default plus a calibration test rather than a number.
 - **Do not add requirements.** If you think something is missing from scope,
   list it under "suggestions outside scope" at the end; do not fold it into
-  the recommendation.
+  the recommendation. Each brief opens with the defaults the owner already
+  accepts; work within them.
 - You cannot run commands or reach the owner's machine. Where a question can
   only be settled by a local test, say so and specify the exact test (tool,
   command shape, inputs, what to measure, what result would change the
-  recommendation).
+  recommendation). Public URLs (the channel's RSS feed, its playlists page)
+  may be fetched during research; report what was actually observed.
 - End with: open uncertainties ranked by how much they would change the
   recommendation, and the cheapest experiment that resolves each; then the
   reference list grouped by source type.

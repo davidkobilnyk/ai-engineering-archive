@@ -6,79 +6,103 @@ Read `00-shared-context.md` first.
 
 A later project will segment each conference day's livestream recording
 (8 to 10 hours) into talks and reconcile them with the individually posted
-talk videos. The intended mechanism is acoustic fingerprinting: fingerprint
-every audio file at download time, then find where a 20-minute talk's audio
-sits inside the day's stream. Which open tools do this well, how accurate
-and fast are they, and what should be computed and stored now so the later
-project has what it needs?
+talk videos. The intended mechanism is acoustic fingerprinting. Which open
+tools do this well enough, how should the test be run, and is there
+anything worth computing at download time given that the unprocessed audio
+is kept for every file?
 
-## Why it matters
+## Defaults the owner already accepts
 
-Fingerprints are cheap to compute at download time and awkward to add
-later for files already processed. They solve three problems: locating a
-cut talk inside a stream (so timestamps can be remapped between the two),
-confirming that a re-uploaded or re-edited video is the same recording, and
-deduplicating. Text matching could do the first, but fingerprints are
-independent of transcription quality.
+- **Direction:** index the talk corpus as the database (the canonical use
+  for the landmark-style tools; it gives duplicate detection for free) and
+  query with sliding windows of the stream recording. Note any tool where
+  the inverse also works.
+- **Numeric targets:** offset accuracy within ±0.5 s (citations are whole
+  seconds); zero talk-level false positives on a test of about 10 talks,
+  with a reported confidence score the later project can threshold; recall
+  of at least 95% of the talks present.
+- **Hard requirement:** the tool returns a **time mapping** (multiple offset
+  clusters with match density), not one best offset, because cut talks can
+  have removed sections and added intros.
+- **Compute-now is optional.** The unprocessed audio is retained, so
+  fingerprints can be recomputed later as a background job. The
+  deliverable is (a) tool choice plus test, (b) an optional cheap
+  compute-now with the chosen tool, schema-versioned and explicitly
+  discardable.
+- **Environment:** Java or C via Homebrew acceptable, Python preferred; the
+  index must run under about 2 GB resident on the 8 GB machine; size for
+  2,000 hours of references.
 
 ## What is already known
 
-- The candidates the owner is aware of, to be verified and extended:
-  Chromaprint (`fpcalc`, the AcoustID fingerprinter), audfprint, Panako,
-  Olaf, dejavu, and the landmark approach (Shazam-style) they implement.
-  Chromaprint is designed for whole-track identification, not for locating
-  a segment inside a long recording; whether it can be used that way is a
-  question.
+- Candidates the owner is aware of, to be verified and extended:
+  Chromaprint (`fpcalc`, the AcoustID fingerprinter, designed for
+  whole-track identification), audfprint, Panako, Olaf, dejavu, and the
+  landmark approach they implement.
 - The stream audio and the cut talk audio are the same recording, but the
-  cut version may be trimmed at both ends, have different encoding
-  (YouTube re-encodes), and occasionally have edits (removed sections,
-  added intro cards). Audio levels may differ.
-- Volume: about 1,135 talks now, hundreds per year; a handful of 10-hour
-  streams per event. Fingerprints must be computed on the M1 in the
-  background.
+  cut version may be trimmed at both ends, re-encoded by YouTube, and
+  occasionally edited (removed sections, added intro cards); levels may
+  differ.
+- Volume: about 1,135 talks now, hundreds per year; two or three 8 to
+  10-hour recordings per event.
+- **Ground truth exists without manual work.** Several past recordings
+  carry YouTube chapters with talk titles and speakers at second
+  resolution: Code 2025 Day 2 (`xmbSQz-PNMM`, 9.0 h, 26 chapters, e.g.
+  "0:23:41 Stop Building Agents — Barry Zhang & Mahesh Murag") and Europe
+  2026 Day 1 (`O_IMsEg91g8`, 9.2 h, 23 chapters), both with their talks in
+  the corpus (Code 2025: 67 talks; Europe 2026: 187). Paris 2025 Day 2 has
+  no chapters and its talks are not in the corpus under a Paris 2025
+  event, so it is a poor ground-truth choice despite being the most
+  comparable event. See `data/streams-tab-2026-09-16.json`.
+- Both the stream and each talk have a timestamped automatic caption track
+  already downloaded, so caption-text alignment is a free, independent
+  second method.
 
 ## Questions to answer
 
 1. Which open-source fingerprinting tools support **query-in-database
-   localization**: given a long reference and a short query, return the
-   offset where the query occurs, robust to re-encoding, level changes, and
-   trims? Compare Chromaprint, audfprint, Panako, Olaf, and any 2024 to 2026
-   entrants, on: license, language and dependencies, maintenance status,
-   macOS installation, documented accuracy, speed on CPU, and index storage
-   size per hour of audio.
-2. For the tools that qualify, what parameters and what query length give
-   reliable localization, and what is the false-match behaviour when the
+   localization** returning a time mapping robust to re-encoding, level
+   changes, and trims? Compare Chromaprint, audfprint, Panako, Olaf, and
+   any 2024 to 2026 entrants on: license, language and dependencies,
+   maintenance status, macOS installation, documented accuracy, CPU speed,
+   index storage and resident memory per hour of reference audio, and
+   whether they return multiple offset clusters with density.
+2. For the tools that qualify, what parameters and what query window
+   length meet the targets, and what is the false-match behaviour when the
    query is not in the reference (a talk not in that day's stream)?
-3. What exactly should be computed and stored **now**, at download time, so
-   it does not have to be recomputed: the raw fingerprint data per file in
-   the tool's native format, an index, or both? Format and size estimates
-   per talk and per 10-hour stream.
-4. Can the same fingerprints serve duplicate detection (same recording
-   re-uploaded under a new video ID) and detection of re-edits (same talk,
-   sections removed)? How would each be recognized from the match pattern?
-5. Speed: for the backfill, how long to fingerprint 463 hours of audio on an
-   M1 with the recommended tool, and for each event, a few 10-hour streams?
+3. Whether any stored intermediate is tool-agnostic enough to be worth
+   computing at download time (likely none), and if so its format and
+   size per talk and per recording.
+4. Duplicate detection and re-edit detection from the same index: how each
+   is recognized from the match pattern.
+5. Speed: time to index 463 hours of talks on an M1, and to query a 10-hour
+   recording against that index.
 6. Failure modes with conference audio: music beds, applause, MC segments
-   repeated across days, two stages with overlapping audio, silence.
-7. If no fingerprinting tool is satisfactory, what is the best alternative
-   for locating a talk inside a stream: transcript alignment, title-slide
-   detection in keyframes, schedule times? Rank them.
+   repeated across days, silence, and two talks with the same intro
+   jingle.
+7. Rank the alternatives (caption-track text alignment, title-slide
+   detection in keyframes, schedule times) and say which should run
+   **alongside** fingerprinting as a consistency check, not as a fallback.
+   Caption alignment is free and independent; say how it would be scored
+   against the same targets.
 
 ## Out of scope
 
 The segmentation project itself; transcription; keyframe extraction (brief
-09) except as an alternative in question 7.
+09) except as a cross-check in question 7.
 
 ## Deliverable
 
-A comparison table of tools; a recommendation for what to compute and store
-at download time with the command or library call; expected accuracy,
-speed, and storage numbers with sources; and the test the owner should run
-on one stream and its cut talks to confirm before relying on it.
+A comparison table of tools against the hard requirement and targets; a
+recommendation; the confirmation test using a chaptered recording and its
+talks, with the chapters as ground truth and three talk starts
+cross-checked by caption alignment; expected accuracy, speed, and memory
+numbers with sources; and the compute-now decision.
 
 ## Suggested sources
 
 The projects' repositories and papers (Chromaprint/AcoustID, audfprint by
 Dan Ellis, Panako by Joren Six, Olaf, dejavu); the ISMIR literature on
-audio fingerprinting; benchmarks comparing landmark-based fingerprinters
-on robustness to re-encoding and trimming; any 2024 to 2026 surveys.
+audio fingerprinting and on query-by-example localization; benchmarks of
+landmark-based fingerprinters on robustness to re-encoding and trimming;
+any 2024 to 2026 surveys.

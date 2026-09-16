@@ -5,80 +5,115 @@ Read `00-shared-context.md` first.
 ## The question
 
 For each new video the job must download (a) the best 1080p video stream
-preferring AV1, then VP9, then H.264, (b) the best audio stream, kept
-unprocessed as the archive's audio of record and later sent to hosted
-speech-to-text services, and (c) the English automatic caption track. What
-exact `yt-dlp` format selection achieves this, and which audio stream is
-the right one to keep for transcription?
+preferring AV1, then VP9, then H.264, (b) the best Opus and the best AAC
+audio streams, kept unprocessed as the archive's audio of record and later
+sent to hosted speech-to-text services, and (c) the English automatic
+caption track. What exact `yt-dlp` invocations achieve this, what verifies
+the result, and which audio stream should feed transcription?
 
-## Why it matters
+## Defaults the owner already accepts
 
-The video is kept forever on a local drive, so codec choice sets storage
-size by a factor of ten. The audio is the input to every transcription now
-and in the future, so the wrong container or codec could cost accuracy or
-force conversions. Getting the selector wrong silently, for example
-downloading a 720p stream because 1080p was named differently, would only
-be noticed months later.
+- Keep **both** the best Opus and the best AAC stream (about 40 MB per talk
+  total). Exclude dynamic-range-compressed ("DRC") variants and require the
+  original-language track (auto-dubbed tracks exist on some videos).
+- **"Unprocessed" means no transcoding, ever.** A lossless remux is allowed
+  only if the elementary stream is shown to be unchanged. Hash the
+  elementary stream, not the container, so the hash survives a remux.
+- Prefer DASH over HLS variants; prefer 30 fps over 60 fps where both exist
+  at the same resolution and codec; do not infer container from codec (a
+  VP9 stream arrived in an mp4 container).
+- yt-dlp is called as a subprocess; the deliverable is command-line
+  invocations plus the `-J` and `--print` output shapes the Python side
+  will parse.
+- Speech-to-text vendors: Deepgram, ElevenLabs Scribe, AssemblyAI, a closed
+  set. The kept audio must be accepted natively by all three.
 
-## What is already known
+## What is already known (measured 2026-09-16)
 
-- Measured on the channel: videos since mid-2025 offer AV1 (`av01`), VP9,
-  and H.264 (`avc1`) at 360p through 1080p; earlier videos H.264 only. One
-  81-minute workshop offered no 1080p stream at all. Some videos offer
-  720p at 60 fps.
-- Audio streams observed: about 129 kbps, in both Opus/WebM and AAC/M4A
-  containers. Which is better for speech-to-text is unknown.
-- Video and audio are separate streams on YouTube; merging into one file
-  needs `ffmpeg`. The archive may prefer to keep them as separate files
-  keyed by video ID.
-- Caption tracks are available as `json3` (with per-cue timing and, in some
-  cases, per-word offsets), `vtt`, and `srv1`; `json3` was the easiest to
-  parse. Codes `en` and `en-orig` returned identical text.
+- Videos since mid-2025 offer AV1 (`av01`), VP9, and H.264 (`avc1`) at 360p
+  through 1080p; earlier videos H.264 only. One 81-minute workshop offered
+  no 1080p stream at all. Some videos offer 720p or 1080p only at 60 fps.
+- The selector `-f "bv*[height<=1080][protocol!*=m3u8]" -S
+  "res:1080,vcodec:av01:vp9:h264,fps:30,proto"` chose format 137 (H.264
+  1080p30, about 82 MB) on a 2024 talk, 399 (AV1 1080p60, about 42 MB) on
+  the Hugging Face talk, and 399 (AV1 1080p60, about 1.36 GB) on the
+  8.4-hour Paris 2025 Day 2 stream recording. The `fps:30` preference is
+  moot when no 30 fps variant exists at that resolution and codec.
+- Audio on the Hugging Face talk: HLS audio variants (233, 234) to exclude;
+  DASH Opus at 49, 61, and 113 kbps (249, 250, 251) and AAC at 49 and 129
+  kbps (139, 140); all tagged `en-US original (default)`; no DRC variants
+  on this video, though they exist on others. The selectors
+  `ba[acodec^=opus][format_note!*=DRC]` and
+  `ba[acodec^=mp4a][format_note!*=DRC]` returned 251 and 140.
+- Fresh uploads: four talks checked 1.2 to 2.8 hours after publication all
+  already offered 1080p in all three codecs. The full ladder appears within
+  about an hour on this channel; a long hold is not needed, but the
+  fetched stream must be verified against the intent.
+- Caption tracks are available as `json3` (per-cue timing, sometimes
+  per-word offsets), `vtt`, and `srv1`; `json3` was easiest to parse; `en`
+  and `en-orig` returned identical text.
 
 ## Questions to answer
 
-1. The `yt-dlp` format selector (`-f` with `-S` sort options) that expresses
-   "1080p if available else the highest below it; AV1 preferred, then VP9,
-   then H.264; avoid 60 fps if a 30 fps stream of the same resolution and
-   codec exists" and downloads it as video-only. Give the exact string and
-   explain each part. Note pitfalls (e.g. `bestvideo` preferring bitrate
-   over codec).
+1. The video selector: confirm or improve the one above, explain each part,
+   and note pitfalls (bitrate-first defaults, 60 fps variants, HLS
+   variants, videos with no 1080p, the `-S` versus `-f` interaction).
 2. Whether to merge video and audio into one container or keep separate
-   files. Consider: keyframe extraction (video only), transcription (audio
-   only), disk layout, and future re-processing. Recommend one.
-3. Audio for speech-to-text: Opus/WebM versus AAC/M4A at the bitrates
-   YouTube offers. Do the major hosted transcription services (Deepgram,
-   ElevenLabs Scribe, AssemblyAI) accept both directly? Does either
-   measurably help accuracy? Is there any reason to transcode to WAV or
-   FLAC before upload (and if so, at what sample rate), or to keep the
-   original and let each service decode it?
-4. Caption tracks: the `yt-dlp` options to fetch the English automatic
-   track in `json3` without downloading media, whether `json3` word-level
-   offsets are reliable, and whether `en` versus `en-orig` ever differ.
-5. Metadata: the `-J` or `--write-info-json` output includes upload date,
-   duration, description, chapters, categories, tags, and a `heatmap` (most
-   replayed) field. Confirm which fields exist in current `yt-dlp` output,
-   which need the extra `--write-comments` option, and which require the
-   YouTube Data API instead (playlist membership, precise publish time).
-6. Verification: how to confirm after download that the file is the
-   resolution and codec intended (`ffprobe` invocation) and complete
-   (`yt-dlp`'s own checks, content hash), so the job can reject a bad fetch.
+   files, judged against the "no transcoding, remux only with proof" rule.
+   Consider keyframe extraction (video only), transcription (audio only),
+   disk layout, and future re-processing. Recommend one.
+3. Audio selectors that guarantee both the best Opus and the best AAC,
+   exclude DRC variants, and require the original-language track. Confirm
+   the exact `format_note` and `language` field values yt-dlp exposes for
+   DRC and dubbed tracks.
+4. Which of the two streams should feed speech-to-text, and why: do
+   Deepgram, ElevenLabs Scribe, and AssemblyAI accept Opus/WebM and
+   AAC/M4A directly, does either measurably help accuracy, and is there any
+   reason to send a decoded WAV or FLAC instead (at what sample rate)?
+   Record each vendor's file-size and duration limits for direct upload,
+   since 8-hour stream recordings may exceed them.
+5. Caption tracks: the options to fetch the English automatic track in
+   `json3` without media, whether `json3` word-level offsets are reliable,
+   and whether `en` versus `en-orig` ever differ.
+6. Metadata: which fields the `-J` or `--write-info-json` output includes
+   in current yt-dlp (upload date, duration, description, chapters,
+   categories, tags, `heatmap`, view and like counts), which need
+   `--write-comments`, and which require the YouTube Data API instead
+   (playlist membership, precise publish time). Give the `--print`
+   template the job should use for the fields it needs.
+7. **Fresh-upload completeness.** How to detect that a just-published
+   video's format list is still incomplete, and a wait-or-refetch policy
+   that guarantees the archive ends up with the intended stream. The local
+   observation suggests "verify the fetched stream matches the intended
+   codec and resolution; if not, re-check once after 6 hours." Look for
+   documented transcoding delays on long or high-resolution uploads.
+   Scheduling of re-checks is brief 01's.
+8. **Ended-stream recordings.** Do the same selectors work on a finished
+   livestream recording (8 or more hours, a format set that may change for
+   a day after the stream ends, possible absence of 1080p), and what
+   differs? Brief 04 covers when to fetch them.
+9. Verification: `ffprobe` invocations to confirm the file is the
+   resolution and codec intended and complete, and how to hash the
+   elementary stream.
 
 ## Out of scope
 
-Pacing and rate limits (brief 01); tool installation (brief 02); keyframe
-extraction method (brief 09).
+Pacing and rate limits (brief 01); tool installation and updates (brief
+02); keyframe extraction (brief 09); when to fetch stream recordings (brief
+04).
 
 ## Deliverable
 
-The exact `yt-dlp` invocations for video, audio, captions, and metadata
-(one invocation or several, with reasoning), the audio-format
-recommendation with evidence from transcription vendors' documentation, the
-merge-or-separate decision, and the verification commands. Dated citations.
+The exact `yt-dlp` invocations for video, audio, captions, and metadata,
+with reasoning; the merge-or-separate decision against the stated rule;
+the audio-for-transcription recommendation with vendor documentation
+cited; the fresh-upload policy; the verification commands; and the `-J`
+and `--print` shapes the Python side parses. Dated citations.
 
 ## Suggested sources
 
-The yt-dlp README sections on format selection and sorting; yt-dlp wiki;
-Deepgram, ElevenLabs, and AssemblyAI documentation on accepted input formats
-and any guidance on audio quality; ffmpeg and ffprobe documentation; YouTube
-format ID references maintained by the community (verify currency).
+The yt-dlp README sections on format selection, sorting, and output
+templates at version 2026.08.19; yt-dlp wiki; Deepgram, ElevenLabs, and
+AssemblyAI documentation on accepted input formats, limits, and any audio
+quality guidance; ffmpeg and ffprobe documentation; community references
+for YouTube format IDs (verify currency).

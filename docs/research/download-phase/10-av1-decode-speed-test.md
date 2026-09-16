@@ -1,9 +1,16 @@
 # Local test 10: AV1 decode and keyframe-extraction speed on the M1
 
-Not a research brief. A step-by-step test for the owner to run in a normal
-terminal (outside any sandbox). Purpose: decide whether keyframe extraction
-should run on the AV1 stream (smallest, software decode only on M1) or on
-the VP9 stream (hardware decode) while AV1 is stored.
+Not a research brief. A step-by-step test the owner ran on 2026-09-16.
+Purpose: decide whether keyframe extraction should run on the AV1 stream
+(smallest, software decode only on M1) or on the VP9 stream (hardware
+decode) while AV1 is stored.
+
+**Result: store AV1, extract from AV1 in software.** Software AV1 decode
+of 1080p60 ran at about 14x real time and a full keyframe-extraction pass
+at 17x; the VideoToolbox hardware path was 3 to 4x for this workload
+because every decoded frame is copied back to the CPU. Results are in
+section 8. All three test files were 60 fps; most talks are 30 fps and run
+faster.
 
 Expect 20 to 30 minutes, mostly waiting on downloads and decodes. Run it
 while you are not otherwise using the laptop; the decodes use every core.
@@ -134,16 +141,24 @@ the per-talk cost of the second pass.
 
 ## 8. Record the results
 
+Measured 2026-09-16 (talk `FLUoowDJg4I`, 1237 s, all files 1080p at 60 fps):
+
 | Measurement | Seconds | Real-time factor |
 |---|---|---|
-| AV1 1080p software decode | | |
-| VP9 1080p software decode | | |
-| VP9 1080p hardware decode | | |
-| H.264 1080p hardware decode | | |
-| AV1 keyframe extraction (full pass) | | |
-| VP9 keyframe extraction (hardware) | | |
-| 360p AV1 detection pass | | |
-| Single 1080p frame seek | | n/a |
+| AV1 1080p60 software decode | 87.4 (repeat 91.1) | 14.2x (13.6x) |
+| VP9 1080p60 software decode | 44.3 | 27.9x |
+| H.264 1080p60 software decode | 32.2 | 38.4x |
+| VP9 1080p60 hardware decode (VideoToolbox) | 287.9 | 4.3x |
+| H.264 1080p60 hardware decode (VideoToolbox) | 355.2 | 3.5x |
+| AV1 keyframe extraction, scene threshold 0.3 | 70.9 | 17.4x (7 frames) |
+| AV1 keyframe extraction, scene threshold 0.06 | 70.9 | 17.4x (40 frames) |
+| 360p AV1 detection pass | not run | not needed |
+| Single 1080p frame seek | not run | not needed |
+
+Frame observations: threshold 0.3 caught only full-frame image swaps and
+missed every text-slide advance; 0.06 found 40 detections of which 12 were
+same-second crossfade pairs, leaving about 28 distinct slides 20 to 90 s
+apart. See brief 09.
 
 ## 9. How to read it
 
