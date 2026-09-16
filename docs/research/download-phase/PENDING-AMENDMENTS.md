@@ -324,6 +324,21 @@ From the prep agent's review (all accepted):
   only in later description edits.
 - Weighting: report the overall figure but decide on the 2025 to 2026
   subset, broken out by event series (World's Fair versus regional).
+- **Survey result (2026-09-16, `data/description-links-2026-09-16.md`):
+  1 of 205 descriptions links a deck** (a Google Slides link on one World's
+  Fair 2026 talk); 1 of 180 in the 2025-2026 subset. Only 8 of 205 even
+  mention the word "slides". Descriptions are a fixed template: the
+  ai.engineer talk page, the speakers' LinkedIn and X profiles, and
+  sometimes a company site; 44 GitHub links across 205 talks (about one
+  talk in five links a repository). The 15% build threshold is missed by
+  an order of magnitude.
+- **Recommendation: retire brief 07 as a research item.** Decks are not a
+  usable source on this channel; slides come from keyframes (brief 09).
+  Keep two lines elsewhere: (1) the download job records every description
+  URL with fetch time, HTTP status, and title (brief 03 metadata list);
+  (2) a later note that GitHub README files linked from about 20% of talks
+  are a cheap name-dictionary source for the correction stage, to be
+  picked up by the correction-stage research, not this phase.
 
 ## 08-channel-watching-feed-and-data-api.md
 
