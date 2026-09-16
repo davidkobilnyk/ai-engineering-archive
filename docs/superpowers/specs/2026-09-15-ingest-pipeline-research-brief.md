@@ -148,10 +148,18 @@ problem; it needs a correction stage to reach upstream quality.**
 ### 3.4 YouTube's own caption track
 
 The 46 auto-caption talks in the corpus are YouTube's automatic English
-caption track, word for word (verified on one talk; ten others re-fetched
-two weeks after the corpus date were unchanged, so the tracks do not
-improve on their own). Third-party "YouTube to transcript" sites serve this
-same track.
+caption track, word for word (verified on one talk). Third-party "YouTube
+to transcript" sites serve this same track; one such site's output for a
+talk was compared against a direct fetch and differed by 9 words in 3,500,
+all small decode slips.
+
+**The track is not stable over time.** Of ten auto-caption talks re-fetched
+two weeks after the corpus date, eight were identical and two had drifted by
+about 3% of words. The site comparison above shows the same kind of drift.
+It looks like periodic re-decoding by the same class of model rather than a
+quality upgrade, but the sample is small. A pipeline that uses the track
+must record fetch time, and the researcher should find out whether YouTube
+documents re-captioning behavior and whether quality improves with time.
 
 Its quality varies a lot per video and is not predictable from metadata.
 On the Hugging Face talk from section 3.3 it matched the edited transcript
