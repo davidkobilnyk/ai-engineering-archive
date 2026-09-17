@@ -1,8 +1,9 @@
-"""Fail-closed checks that run before any download."""
+"""Fail-closed checks that run before any download (spec section 9)."""
 from __future__ import annotations
 
 import fcntl
 import os
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -11,6 +12,7 @@ from zoneinfo import ZoneInfo
 from .records import VIDEOS_DIR
 
 LOCAL_TZ = ZoneInfo("America/New_York")
+CHARTER_ASNS = {20115, 11351, 7843, 20001, 12271}
 LOCK_NAME = ".backfill.lock"
 
 
@@ -20,6 +22,13 @@ def parse_window(text: str) -> tuple[time, time]:
     return time.fromisoformat(start), time.fromisoformat(end)
 
 
+def in_window(now: datetime, start: time, end: time) -> bool:
+    t = now.astimezone(LOCAL_TZ).time()
+    if start <= end:
+        return start <= t < end
+    return t >= start or t < end          # a window that crosses midnight
+
+
 def window_end(now: datetime, start: time, end: time) -> datetime:
     """When the window that contains `now` closes, as an aware local datetime."""
     local = now.astimezone(LOCAL_TZ)
@@ -27,6 +36,49 @@ def window_end(now: datetime, start: time, end: time) -> datetime:
     if end_dt <= local:
         end_dt += timedelta(days=1)
     return end_dt
+
+
+def run_text(cmd: list[str]) -> str | None:
+    """stdout of a successful command, else None."""
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return proc.stdout if proc.returncode == 0 else None
+
+
+def on_mains() -> bool:
+    out = run_text(["pmset", "-g", "batt"])
+    return bool(out) and "AC Power" in out
+
+
+def default_route_is_physical() -> bool:
+    out = run_text(["route", "-n", "get", "default"])
+    if not out:
+        return False
+    for line in out.splitlines():
+        if line.strip().startswith("interface:"):
+            return not line.split(":", 1)[1].strip().startswith("utun")
+    return False
+
+
+def public_ipv4() -> str | None:
+    out = run_text(["dig", "-4", "+short", "TXT", "o-o.myaddr.l.google.com", "@ns1.google.com"])
+    if not out:
+        return None
+    ip = out.strip().strip('"')
+    return ip if ip.count(".") == 3 and ip.replace(".", "").isdigit() else None
+
+
+def asn_of(ip: str) -> int | None:
+    reversed_ip = ".".join(reversed(ip.split(".")))
+    out = run_text(["dig", "+short", "TXT", f"{reversed_ip}.origin.asn.cymru.com"])
+    if not out:
+        return None
+    try:
+        return int(out.strip().strip('"').split("|")[0].strip())
+    except ValueError:
+        return None
 
 
 def drive_ready(archive: Path) -> bool:
@@ -68,9 +120,23 @@ class GuardConfig:
 
 def check(cfg: GuardConfig, now: datetime) -> tuple[str | None, int | None]:
     """Return (skip_reason, lock_fd). A None reason means every guard passed
-    and the lock is held."""
+    and the lock is held. Order and names follow spec section 9."""
+    if not cfg.manual and not in_window(now, *cfg.window):
+        return "skipped:window", None
+    if cfg.backoff_until and now < cfg.backoff_until:
+        return "skipped:backoff", None
+    if not cfg.manual and not on_mains():
+        return "skipped:power", None
     if not drive_ready(cfg.archive):
         return "skipped:drive", None
+    if not default_route_is_physical():
+        return "skipped:vpn", None
+    ip = public_ipv4()
+    asn = asn_of(ip) if ip else None
+    if asn is None:
+        return "skipped:asn-unknown", None
+    if asn not in CHARTER_ASNS:
+        return "skipped:asn", None
     fd = acquire_lock(cfg.archive)
     if fd is None:
         return "skipped:lock", None

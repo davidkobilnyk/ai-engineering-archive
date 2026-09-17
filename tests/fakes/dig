@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+"""Fake dig: the public-IP TXT lookup prints FAKE_DIG_IP, the Cymru ASN lookup
+prints FAKE_DIG_ASN. Defaults are the values measured on 2026-09-16.
+An empty value prints nothing, which is what a failed lookup looks like."""
+import os
+import sys
+if any("myaddr" in a for a in sys.argv):
+    print(os.environ.get("FAKE_DIG_IP", '"71.81.249.26"'))
+else:
+    print(os.environ.get("FAKE_DIG_ASN", '"20115 | 71.81.192.0/18 | US | arin | 2005-05-19"'))

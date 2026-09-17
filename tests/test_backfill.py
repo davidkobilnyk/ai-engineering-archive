@@ -5,6 +5,9 @@ Expected values are literals from tests/fixtures/audio/README.md and
 tests/fixtures/talks.json.
 """
 import json
+from datetime import datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from conftest import run_backfill, ytdlp_calls
 
@@ -102,3 +105,93 @@ def test_invocation_matches_the_spec(archive):
     assert argv[45] == watch_url("knDDGYHnnSI")
     assert len(argv) == 46
     assert "-v" not in argv
+
+
+# ---------------------------------------------------------------- guards
+
+NY = ZoneInfo("America/New_York")
+
+
+def window_excluding_now():
+    now = datetime.now(NY)
+    return f"{now + timedelta(hours=2):%H:%M}-{now + timedelta(hours=3):%H:%M}"
+
+
+def window_including_now():
+    now = datetime.now(NY)
+    return f"{now - timedelta(hours=1):%H:%M}-{now + timedelta(hours=2):%H:%M}"
+
+
+def assert_skipped(result, archive, reason):
+    assert result.returncode == 0, result.stderr
+    assert reason in result.stdout
+    assert read_status(archive)["last_outcome"] == reason
+    assert ytdlp_calls(archive) == []
+
+
+def test_outside_window_skips(archive):
+    r = run_backfill("--window", window_excluding_now(), "--ids", "knDDGYHnnSI", archive=archive)
+    assert_skipped(r, archive, "skipped:window")
+
+
+def test_inside_window_on_mains_runs(archive):
+    r = run_backfill("--window", window_including_now(), "--ids", "knDDGYHnnSI", archive=archive)
+    assert r.returncode == 0, r.stderr
+    assert read_status(archive)["last_outcome"] == "success"
+    assert len(ytdlp_calls(archive)) == 1
+
+
+def test_on_battery_skips_unless_now(archive):
+    env = {"FAKE_PMSET_OUTPUT": "Now drawing from 'Battery Power'"}
+    r = run_backfill("--window", window_including_now(), "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert_skipped(r, archive, "skipped:power")
+
+    manual = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert manual.returncode == 0, manual.stderr
+    assert len(ytdlp_calls(archive)) == 1
+
+
+def test_vpn_default_route_skips_even_with_now(archive):
+    env = {"FAKE_ROUTE_OUTPUT": "   route to: default\n  interface: utun4"}
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert_skipped(r, archive, "skipped:vpn")
+
+
+def test_foreign_asn_skips(archive):
+    env = {"FAKE_DIG_ASN": '"62371 | 185.159.156.0/22 | CH | ripencc | 2015-12-03"'}
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert_skipped(r, archive, "skipped:asn")
+
+
+def test_asn_lookup_failure_fails_closed(archive):
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env={"FAKE_DIG_IP": ""})
+    assert_skipped(r, archive, "skipped:asn-unknown")
+
+
+def test_unmounted_volume_skips_and_creates_nothing(tmp_path):
+    missing = Path("/Volumes/aie-test-not-a-drive")
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=missing)
+    assert r.returncode == 0, r.stderr
+    assert "skipped:drive" in r.stdout
+    assert not missing.exists()
+
+
+def test_second_run_while_locked_skips(archive):
+    import fcntl
+    import os
+    fd = os.open(archive / ".backfill.lock", os.O_CREAT | os.O_RDWR)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    try:
+        r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    finally:
+        os.close(fd)
+    assert_skipped(r, archive, "skipped:lock")
+
+
+def test_dry_run_lists_queue_and_fetches_nothing(archive):
+    r = run_backfill("--now", "--dry-run", "--ids", "knDDGYHnnSI", "yj-wSRJwrrc", archive=archive)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.splitlines()[:2] == ["knDDGYHnnSI", "yj-wSRJwrrc"]
+    assert "dry run: 2 of 2 queued videos would be fetched" in r.stdout
+    assert ytdlp_calls(archive) == []
+    assert not (archive / "status.json").exists()

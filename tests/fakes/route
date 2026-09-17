@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+"""Fake route: prints FAKE_ROUTE_OUTPUT (default: default route on en0)."""
+import os
+print(os.environ.get("FAKE_ROUTE_OUTPUT", "   route to: default\ndestination: default\n   gateway: 192.168.1.1\n  interface: en0"))
