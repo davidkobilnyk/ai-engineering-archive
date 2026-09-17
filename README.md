@@ -25,6 +25,12 @@ aie talks --speaker "Ryan Lopopolo"
 In Claude Code, the `aie-archive` skill in `.claude/skills` tells Claude how
 to use these commands and to answer only from the archive.
 
+## Audio backfill
+
+`aie backfill` copies each corpus video's best Opus and AAC audio, caption
+track, and metadata onto the archive drive at `/Volumes/Archive`, nightly
+under launchd. Setup and operations: `docs/ingest/audio-backfill-setup.md`.
+
 ## Tests
 
 ```bash

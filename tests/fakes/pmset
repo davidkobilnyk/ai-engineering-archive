@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+"""Fake pmset: prints FAKE_PMSET_OUTPUT (default: on mains)."""
+import os
+print(os.environ.get("FAKE_PMSET_OUTPUT", "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1)\t80%; charged"))

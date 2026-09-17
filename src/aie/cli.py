@@ -10,6 +10,7 @@ from pathlib import Path
 from . import index as index_mod
 from . import search as search_mod
 from . import sync as sync_mod
+from .ingest import backfill as backfill_mod, guards as guards_mod, ytdlp as ytdlp_mod
 
 DEFAULT_BASE_URL = "https://ai.engineer"
 
@@ -57,6 +58,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_talks.add_argument("--json", action="store_true")
 
     sub.add_parser("status", help="show local corpus version, index time, and counts")
+    p_bf = sub.add_parser("backfill", help="fetch audio, captions and metadata for corpus videos "
+                                           "onto the archive drive")
+    p_bf.add_argument("--archive-dir", type=Path,
+                      default=Path(os.environ.get("AIE_ARCHIVE_DIR", "/Volumes/Archive")),
+                      help="archive root (default /Volumes/Archive or $AIE_ARCHIVE_DIR)")
+    source = p_bf.add_mutually_exclusive_group()
+    source.add_argument("--ids-file", type=Path, help="one video ID per line, # comments")
+    source.add_argument("--ids", nargs="+", metavar="ID", help="video IDs to fetch")
+    p_bf.add_argument("--limit", type=int, default=200, help="videos started per run (default 200)")
+    p_bf.add_argument("--now", action="store_true", help="manual run: skip the window and mains guards")
+    p_bf.add_argument("--window", default="01:00-07:00",
+                      help="nightly window in America/New_York (default 01:00-07:00)")
+    p_bf.add_argument("--dry-run", action="store_true", help="run the guards, print the queue, fetch nothing")
+    p_bf.add_argument("--yt-dlp", type=Path, default=Path(sys.executable).with_name("yt-dlp"),
+                      help="yt-dlp binary (default: the one beside this Python)")
+    p_bf.add_argument("--ffmpeg-dir", type=Path, default=Path("/opt/homebrew/bin"),
+                      help="directory holding ffmpeg and ffprobe")
+    p_bf.add_argument("--deno", type=Path, default=Path("/opt/homebrew/bin/deno"))
+    p_bf.add_argument("--verbose", action="store_true", help="pass -v to yt-dlp")
     return parser
 
 
@@ -143,9 +163,39 @@ def cmd_status(args) -> int:
     return 0
 
 
+def cmd_backfill(args) -> int:
+    if args.limit < 1:
+        print("--limit must be at least 1", file=sys.stderr)
+        return 2
+    try:
+        guards_mod.parse_window(args.window)
+    except ValueError:
+        print("--window must look like HH:MM-HH:MM", file=sys.stderr)
+        return 2
+    if args.ids:
+        ids = args.ids
+    elif args.ids_file:
+        ids = backfill_mod.ids_from_file(args.ids_file)
+    else:
+        talks = args.data_dir / "raw" / "talks.json"
+        if not talks.exists():
+            print(f"no talks file at {talks}; run `aie sync` or pass --ids-file", file=sys.stderr)
+            return 1
+        ids = backfill_mod.ids_from_talks_json(talks)
+    cfg = backfill_mod.Config(
+        archive=args.archive_dir.resolve(), ids=ids,
+        tools=ytdlp_mod.Tools(args.yt_dlp, args.ffmpeg_dir, args.deno),
+        limit=args.limit, manual=args.now, window=args.window, dry_run=args.dry_run,
+        verbose=args.verbose, healthcheck_url=os.environ.get("AIE_HEALTHCHECK_URL"))
+    result = backfill_mod.run(cfg)
+    print(f"{result.outcome}: completed {result.completed}, failed {result.failed}, "
+          f"remaining {result.remaining}")
+    return result.exit_code
+
+
 COMMANDS = {
     "sync": cmd_sync, "index": cmd_index, "search": cmd_search,
-    "show": cmd_show, "talks": cmd_talks, "status": cmd_status,
+    "show": cmd_show, "talks": cmd_talks, "status": cmd_status, "backfill": cmd_backfill,
 }
 
 
