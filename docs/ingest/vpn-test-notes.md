@@ -99,3 +99,78 @@ this relies on:
   order, or fetch captions separately? None approved.
 - 48 newest corpus talks have `event: null` (mostly voice-agent talks); whether
   they belong to World's Fair 2026 is unknown.
+
+## Session update, 2026-09-17 ~17:20 UTC (supersedes earlier state above)
+
+### 13:38 run on CO#77 ended (measured, `vpn-test-2026-09-17-0938.log` / `.summary.json`)
+
+- 13:38:08-16:30:55 UTC (~2 h 53 min of `--hours 10`): **58 attempted, 56 ok,
+  0 x 429, 0 challenges.** Pace ramped to 20/h by 14:36 and held there. Most
+  videos took 57-95 s and 8-12 requests (worst: 195 s; 26 requests).
+- It went past home's failure point (42 videos) at about 15:40 UTC and kept
+  succeeding for 16 more. This fits a rate limit rather than a nightly count,
+  but it was a different address, so it isn't proof.
+- Failures:
+  - HvMyYLTfvhg 16:21:24 `extractor`: two HTTP 403s on audio pieces
+    (`rr3---sn-a5msenes.googlevideo.com`, `Server: gvs 1.0`, no Retry-After), 26 s
+    apart. Captions and info.json downloaded; audio didn't. The next videos
+    succeeded. Same unexplained 403 pattern as home and decision test 1.
+  - zaGyGgLW3SM 16:30:39 `transient`: DNS failed to resolve `www.youtube.com`.
+    The script's egress-ASN check then failed and it stopped ("could not look
+    up egress ASN"). Likely a Proton connection drop (inferred, not verified).
+
+### Restart at 17:07 UTC (running now)
+
+- Owner reconnected the VPN; the restart is running in the owner's Terminal
+  panel: `.venv/bin/python scripts/vpn_test.py --hours 10`. Log is
+  `vpn-test-2026-09-17-1307.log` (the name uses local time). Egress 62.93.177.118. The ASN lookup
+  showed AS3257 this time (see the prefix note above). Queue 1044.
+- **Owner said to let this run continue as it is**; don't stop or change it.
+- No code change was needed for the retries: failed videos aren't "done", so
+  `build_queue` put HvMyYLTfvhg and zaGyGgLW3SM first (checked with `--dry-run`),
+  followed by the same newest-first order.
+- Results so far: HvMyYLTfvhg `failed` (see below); zaGyGgLW3SM ok;
+  4loPnxvWWhg ok; _ehJyfHg1Vk ok (as of 17:17).
+- Expected end: the 200-per-24-h cap counts today's 58 earlier starts, so about
+  142 more starts, roughly 7 h at 20/h (~00:00-01:00 UTC). After that, the 13:38
+  run's starts begin aging out of the 24 h window.
+
+### HvMyYLTfvhg retry failed on leftover files, not the network
+
+- Error: `unexpected codec '' for format 140-3.en`
+  (`src/aie/ingest/backfill.py:102`). The retry downloaded both audio files
+  cleanly (`f140-3.m4a` 12.4 MB, `f251-3.webm` 10.5 MB, no 403). The 16:21
+  attempt had left a caption file named `HvMyYLTfvhg.f140-3.en.json3`.
+  `ytdlp.rows_from_files` read it as an audio format with an empty codec.
+- With owner approval, that file was **moved** (not deleted) to
+  `/Volumes/Archive/vpn-test/set-aside/`. The current run won't retry the video;
+  the next restart will. Whether it then passes verify using the audio already on
+  disk is untested.
+- New known gap (not fixed, main code untouched): files left by a failed attempt
+  can fail the check on the next retry. It could be logged in
+  `next-round-changes.md` if the owner wants it fixed.
+
+### Home nightly job is unloaded
+
+- With owner approval, ran `launchctl bootout gui/$(id -u)/com.aie.backfill`
+  (exit 0; `launchctl print` now reports the service not found). The plist is
+  still at `~/Library/LaunchAgents/com.aie.backfill.plist`. Re-enable with
+  `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.aie.backfill.plist`.
+- Reason: the VPN route is doing much better than the home line. Home
+  `status.json` is unchanged (backoff until 2026-09-18T05:54:34Z,
+  `consecutive_challenges: 1`).
+
+### How to check on the run
+
+- The log is on the drive:
+  `tail /Volumes/Archive/vpn-test/vpn-test-2026-09-17-1307.log`. The summary
+  JSON is written next to it.
+- In the Bash sandbox, the egress/ASN lookup fails ("could not look up egress
+  ASN") even when the VPN works. Run `vpn_test.py` (including `--dry-run`) from
+  the Terminal panel, not sandboxed Bash.
+
+### Still open
+
+- The earlier open questions above still stand.
+- Whether VPN downloads move into `/Volumes/Archive/videos/`, and whether the
+  home job switches to the VPN route or per-hour pacing: undecided, owner's call.
