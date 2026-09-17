@@ -5,11 +5,15 @@ Expected values are literals from tests/fixtures/audio/README.md and
 tests/fixtures/talks.json.
 """
 import json
+import os
+import signal
+import subprocess
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from conftest import run_backfill, ytdlp_calls
+from conftest import backfill_command, backfill_env, run_backfill, ytdlp_calls
 
 OPUS_STREAMHASH = "e80bf0d53e2e9756c2a0dcf16a486493e917cacf4cb57adcadc9394eac2d7eb4"
 AAC_STREAMHASH = "4025563f21c80dda474e195f5b8d3c8b5165b31a17af5c477114d401dce81957"
@@ -289,3 +293,114 @@ def test_dubbed_track_is_refused(archive):
     assert status["videos_failed_last_run"] == 1
     assert "wrong_track" in status["last_error"]
     assert "251-11" in status["last_error"]
+
+
+# ---------------------------------------------------------------- queue, limit, resume, signals
+
+def test_default_queue_is_talks_json_order_and_limit_caps_it(archive, synced_dir):
+    r = run_backfill("--now", "--limit", "2", archive=archive, data_dir=synced_dir)
+    assert r.returncode == 0, r.stderr
+    assert [c[-1] for c in ytdlp_calls(archive)] == [watch_url("knDDGYHnnSI"), watch_url("yj-wSRJwrrc")]
+    assert "success: completed 2, failed 0, remaining 1" in r.stdout
+    assert read_status(archive)["queue_depth"] == 1
+
+    rest = run_backfill("--now", "--limit", "2", archive=archive, data_dir=synced_dir)
+    assert rest.returncode == 0, rest.stderr
+    assert [c[-1] for c in ytdlp_calls(archive)][2:] == [watch_url("am_oeAoUhew")]
+    assert read_status(archive)["queue_depth"] == 0
+
+
+def test_missing_talks_json_is_an_error(archive, tmp_path):
+    r = run_backfill("--now", archive=archive, data_dir=tmp_path / "empty")
+    assert r.returncode == 1
+    assert "no talks file" in r.stderr
+
+
+def test_ids_file_with_comments(archive, tmp_path):
+    ids = tmp_path / "ids.txt"
+    ids.write_text("# uploads walk\nam_oeAoUhew\n\nknDDGYHnnSI  # graphrag\n")
+    r = run_backfill("--now", "--ids-file", str(ids), archive=archive)
+    assert r.returncode == 0, r.stderr
+    assert [c[-1] for c in ytdlp_calls(archive)] == [watch_url("am_oeAoUhew"), watch_url("knDDGYHnnSI")]
+
+
+def test_limit_must_be_positive(archive):
+    r = run_backfill("--now", "--limit", "0", "--ids", "knDDGYHnnSI", archive=archive)
+    assert r.returncode == 2
+    assert "--limit" in r.stderr
+
+
+def test_bad_window_is_a_usage_error(archive):
+    r = run_backfill("--window", "1am-7am", "--ids", "knDDGYHnnSI", archive=archive)
+    assert r.returncode == 2
+    assert "--window" in r.stderr
+
+
+def test_case_collision_is_refused_without_calling_ytdlp(archive):
+    (archive / "videos" / "abcdefghijk").mkdir(parents=True)
+    r = run_backfill("--now", "--ids", "ABCDEFGHIJK", archive=archive)
+    assert r.returncode == 0, r.stderr
+    assert ytdlp_calls(archive) == []
+    assert "case_collision" in read_status(archive)["last_error"]
+    assert not (archive / "videos" / "abcdefghijk" / "abcdefghijk.fetch.json").exists()
+
+
+def test_files_present_without_record_are_verified_and_recorded(archive):
+    run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    record = archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json"
+    record.unlink()
+
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+
+    assert r.returncode == 0, r.stderr
+    assert len(ytdlp_calls(archive)) == 2            # yt-dlp is asked again, skips the files
+    rec = read_record(archive, "knDDGYHnnSI")
+    assert rec["audio"]["opus"]["format_id"] == "251"
+    assert rec["audio"]["opus"]["language"] == "en-US"
+    assert rec["audio"]["opus"]["streamhash_sha256"] == OPUS_STREAMHASH
+    assert rec["audio"]["aac"]["streamhash_sha256"] == AAC_STREAMHASH
+
+
+def test_success_pings_healthcheck_and_skips_do_not(archive, fake_site):
+    env = {"AIE_HEALTHCHECK_URL": fake_site.url + "/hc/abc"}
+    ok = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert ok.returncode == 0, ok.stderr
+    assert fake_site.requests == ["/hc/abc"]
+
+    skipped = run_backfill("--window", window_excluding_now(), "--ids", "am_oeAoUhew", archive=archive, env=env)
+    assert "skipped:window" in skipped.stdout
+    assert fake_site.requests == ["/hc/abc"]
+
+
+def test_run_log_records_each_video(archive):
+    run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    logs = list((archive / "logs").glob("backfill-*.log"))
+    assert len(logs) == 1
+    lines = logs[0].read_text().splitlines()
+    assert any("\tknDDGYHnnSI\tok\t" in line for line in lines)
+    assert lines[0].split("\t")[1] == "run start"
+    assert lines[-1].split("\t")[1] == "run end"
+
+
+def test_sigterm_stops_after_the_current_video_and_leaves_no_record(archive):
+    env = backfill_env(archive, env={"FAKE_YTDLP_SLEEP": "5"})
+    proc = subprocess.Popen(backfill_command("--now", "--ids", "knDDGYHnnSI", "am_oeAoUhew", archive=archive),
+                            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    part = archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.f251.webm.part"
+    deadline = time.time() + 10
+    while not part.exists() and time.time() < deadline:
+        time.sleep(0.05)
+    assert part.exists(), "the fake never started downloading"
+
+    proc.send_signal(signal.SIGTERM)
+    stdout, stderr = proc.communicate(timeout=15)
+
+    assert proc.returncode == 1, stderr
+    assert "interrupted" in stdout
+    assert part.exists()                                                     # left for resume
+    assert not (archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json").exists()
+    assert not (archive / "videos" / "am_oeAoUhew").exists()
+    status = read_status(archive)
+    assert status["last_outcome"] == "interrupted"
+    assert status["current_video"] is None
+    assert len(ytdlp_calls(archive)) == 1
