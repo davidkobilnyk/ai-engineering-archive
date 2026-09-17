@@ -119,7 +119,7 @@ this relies on:
     The script's egress-ASN check then failed and it stopped ("could not look
     up egress ASN"). Likely a Proton connection drop (inferred, not verified).
 
-### Restart at 17:07 UTC (running now)
+### Restart at 17:07 UTC (ended 17:55 on a 429; see the 19:30 section below)
 
 - Owner reconnected the VPN; the restart is running in the owner's Terminal
   panel: `.venv/bin/python scripts/vpn_test.py --hours 10`. Log is
@@ -174,3 +174,88 @@ this relies on:
 - The earlier open questions above still stand.
 - Whether VPN downloads move into `/Volumes/Archive/videos/`, and whether the
   home job switches to the VPN route or per-hour pacing: undecided, owner's call.
+
+## Session update, 2026-09-17 ~19:30 UTC (latest; supersedes the 17:20 section)
+
+### The 17:07 run on CO#77 ended on a 429 at 17:55 UTC
+
+`vpn-test-2026-09-17-1307.log` / `.summary.json`:
+
+- 17:07:17-17:55:34 UTC (48 min of `--hours 10`): 17 attempted, 15 ok, 1 failed
+  (HvMyYLTfvhg, see below), **1 challenge: HTTP 429 on the caption fetch of
+  u6q-byPWUuo** from `www.youtube.com`, no `Retry-After`. The 15 before it were
+  clean (59-89 s, 8-12 requests, no 403s). No slowdown first - the same
+  signature as the home line's 429.
+- So 20/h did not prevent the 429; it delayed it. The earlier "this fits a rate
+  limit" reading in the 17:20 section is **wrong as stated** - see the counts below.
+
+### Starts before each 429 (measured from the logs, by egress address)
+
+| Trailing window before the 429 | Home (429 05:54) | CO#77 (429 17:55) |
+|---|---|---|
+| 1 h | 42 | 16 |
+| 2 h | 42 | 28 |
+| 3 h | 42 | 48 |
+| 4 h | 45 | 68 |
+| 5 h | 45 | 80 |
+| whole session | 45 (03:06-05:54) | 81 (13:06-17:55) |
+
+Home's 45 includes a single-video test run at 03:06. CO#77's 81 is the three runs
+on 62.93.177.118 (6 + 58 + 17); the 12:54/13:00 rows in the log dir are the
+blocked CA#620 and CL#40 exits and are not on this address.
+
+**No single window gives the same threshold for both addresses.** Neither "N per
+hour" nor "N per rolling window" fits.
+
+### Working hypothesis: a token bucket (unproven, 2 points / 2 parameters)
+
+A budget that spends one per video start and refills steadily fits both failures
+with **refill ~10 starts/h and bucket ~33**:
+
+- home: 42 starts in 54 min - fast enough that refill barely matters
+- CO#77: 81 starts in 4 h 50 min (avg ~16.8/h), ~7/h above refill, so the same
+  bucket took ~5 h to drain
+
+Caveat, important: two failures and two unknowns, so the fit is exact by
+construction and is **not evidence**. The two addresses need not share a budget.
+Its sharp prediction is what makes it worth testing: a sustained rate below the
+refill should never trip, however long it runs.
+
+### Test running now: 8/h on a new exit CR#4 (started 18:51:34 UTC)
+
+- Owner runs it in their own terminal tab (not Claude's):
+  `.venv/bin/python scripts/vpn_test.py --per-hour 8 --hours 16 --max-per-day 300`
+- Egress **195.177.92.62** AS212238 (new today; not CO#77, CA#620 or CL#40).
+  Log `vpn-test-2026-09-17-1451.log`. Queue 1028.
+- Cap raised to 300 so it does not bind (81 used today + ~128 at 8/h). `--hours 16`
+  is the limiter: no new starts after ~10:51 UTC on 2026-09-18.
+- As of 19:23: 5 attempted, 5 ok (u6q-byPWUuo - the 429 casualty - 5dCAmSDOAjI,
+  byn9PURoBNY, Xln-On3syJk, z1dqv74SpUs). No 403s, no 429s.
+- **What counts as a result**: no 429 through the whole run supports the bucket
+  (refill >= 8/h). A 429 refutes it as stated; the count and time then give a
+  better refill estimate.
+
+### HvMyYLTfvhg is fixed; the leftover-file failure is understood
+
+- The stray `HvMyYLTfvhg.f140-3.en.json3` (written by the 16:21 attempt, read by
+  `ytdlp.rows_from_files` as an audio format with an empty codec) was moved to
+  `/Volumes/Archive/vpn-test/set-aside/`. Nothing was deleted.
+- On the next run the video verified in **9 s with 3 requests** using the audio
+  already on disk. Confirms the diagnosis: a leftover file, not the network.
+- Still a real gap in the job: files left by a failed attempt can fail the check
+  on the next retry. Not fixed, main code untouched; candidate for
+  `next-round-changes.md` if the owner wants it.
+
+### Other state
+
+- Home nightly LaunchAgent `com.aie.backfill` is **unloaded** (`launchctl bootout`,
+  exit 0; plist still in `~/Library/LaunchAgents`). Nothing else touches YouTube
+  overnight. Re-enable with `launchctl bootstrap gui/$(id -u) <plist>`.
+- Home `status.json` untouched: backoff until 2026-09-18T05:54:34Z,
+  `consecutive_challenges: 1`.
+- Two duplicate runs were started by accident at 18:41/18:42 (owner's and
+  Claude's, same args). Claude's `pkill -f` pattern then matched both and killed
+  the owner's too. Lesson for a later session: check for a running process first,
+  target by PID, and leave the owner's processes to the owner.
+- `docs/ingest/vpn-test-notes.md` is on branch `vpn-audio-test`;
+  PR is davidkobilnyk/ai-engineering-archive#6.
