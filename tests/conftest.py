@@ -127,3 +127,46 @@ def indexed_dir(synced_dir):
     result = run_aie("index", data_dir=synced_dir)
     assert result.returncode == 0, result.stderr
     return synced_dir
+
+
+FAKES = Path(__file__).parent / "fakes"
+FFMPEG_DIR = Path("/opt/homebrew/bin")
+
+
+def backfill_command(*args, archive):
+    """The exact argv the tests run: the CLI with fake yt-dlp and real ffmpeg."""
+    return [sys.executable, "-m", "aie", "backfill", "--archive-dir", str(archive),
+            "--yt-dlp", str(FAKES / "yt-dlp"), "--ffmpeg-dir", str(FFMPEG_DIR),
+            "--deno", str(FFMPEG_DIR / "deno"), *args]
+
+
+def backfill_env(archive, data_dir=None, env=None):
+    merged = {**os.environ,
+              "PATH": f"{FAKES}:{os.environ.get('PATH', '')}",
+              "FAKE_YTDLP_LOG": str(archive.parent / "ytdlp-calls.jsonl")}
+    merged.pop("AIE_HEALTHCHECK_URL", None)
+    if data_dir:
+        merged["AIE_DATA_DIR"] = str(data_dir)
+    if env:
+        merged.update(env)
+    return merged
+
+
+def run_backfill(*args, archive, data_dir=None, env=None):
+    return subprocess.run(backfill_command(*args, archive=archive), capture_output=True, text=True,
+                          env=backfill_env(archive, data_dir, env))
+
+
+def ytdlp_calls(archive):
+    """Every argv the fake yt-dlp received, in order."""
+    log = archive.parent / "ytdlp-calls.jsonl"
+    if not log.exists():
+        return []
+    return [json.loads(line) for line in log.read_text().splitlines() if line.strip()]
+
+
+@pytest.fixture
+def archive(tmp_path):
+    d = tmp_path / "archive"
+    d.mkdir()
+    return d
