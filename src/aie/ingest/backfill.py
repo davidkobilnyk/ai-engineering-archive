@@ -5,7 +5,7 @@ import json
 import os
 import signal
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import guards, records, verify, ytdlp
@@ -13,6 +13,8 @@ from .status import Status, ping, utc_now_iso
 
 DURATION_TOLERANCE_S = 2.0
 MAX_CONSECUTIVE_FAILURES = 3
+BACKOFF_HOURS = 24
+CHALLENGE_ALERT_STRIKES = 2
 
 
 @dataclass
@@ -239,6 +241,16 @@ def run(cfg: Config, log=print) -> RunResult:
                     result.exit_code = 1
                     if kind not in ("ok", "unavailable"):
                         break
+                if kind == "challenge":
+                    st.consecutive_challenges += 1
+                    st.backoff_until = (datetime.now(timezone.utc)
+                                        + timedelta(hours=BACKOFF_HOURS)).isoformat(timespec="seconds")
+                    st.last_error = f"{video_id}: {detail}"
+                    log(f"  challenge: {detail}; backing off until {st.backoff_until}")
+                    result.outcome, result.exit_code = "challenge", 1
+                    if st.consecutive_challenges >= CHALLENGE_ALERT_STRIKES:
+                        ping(cfg.healthcheck_url, fail=True)
+                    break
                 if kind in ("ok", "unavailable"):
                     result.completed += 1
                     consecutive_failures = 0

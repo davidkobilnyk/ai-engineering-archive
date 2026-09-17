@@ -5,7 +5,7 @@ Expected values are literals from tests/fixtures/audio/README.md and
 tests/fixtures/talks.json.
 """
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -195,3 +195,97 @@ def test_dry_run_lists_queue_and_fetches_nothing(archive):
     assert "dry run: 2 of 2 queued videos would be fetched" in r.stdout
     assert ytdlp_calls(archive) == []
     assert not (archive / "status.json").exists()
+
+
+# ---------------------------------------------------------------- outcomes
+
+def test_challenge_stops_run_backs_off_24h_and_next_run_skips(archive, fake_site):
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"yj-wSRJwrrc": "challenge"}),
+           "AIE_HEALTHCHECK_URL": fake_site.url + "/hc/abc"}
+    ids = ["knDDGYHnnSI", "yj-wSRJwrrc", "am_oeAoUhew"]
+    before = datetime.now(timezone.utc)
+
+    r = run_backfill("--now", "--ids", *ids, archive=archive, env=env)
+
+    assert r.returncode == 1
+    assert "challenge: completed 1, failed 0, remaining 2" in r.stdout
+    assert (archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json").exists()
+    assert not (archive / "videos" / "yj-wSRJwrrc" / "yj-wSRJwrrc.fetch.json").exists()
+    assert [c[-1] for c in ytdlp_calls(archive)] == [watch_url("knDDGYHnnSI"), watch_url("yj-wSRJwrrc")]
+    status = read_status(archive)
+    assert status["last_outcome"] == "challenge"
+    assert status["consecutive_challenges"] == 1
+    assert "Sign in to confirm you're not a bot" in status["last_error"]
+    until = datetime.fromisoformat(status["backoff_until"])
+    assert timedelta(hours=23, minutes=59) < until - before < timedelta(hours=24, minutes=1)
+    assert fake_site.requests == []          # the first strike does not alert
+
+    again = run_backfill("--now", "--ids", *ids, archive=archive, env=env)
+    assert again.returncode == 0
+    assert "skipped:backoff" in again.stdout
+    assert len(ytdlp_calls(archive)) == 2
+
+
+def test_second_consecutive_challenge_pings_fail(archive, fake_site):
+    (archive / "status.json").write_text(json.dumps({
+        "consecutive_challenges": 1,
+        "backoff_until": (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")}))
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"knDDGYHnnSI": "challenge"}),
+           "AIE_HEALTHCHECK_URL": fake_site.url + "/hc/abc"}
+
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+
+    assert r.returncode == 1
+    assert read_status(archive)["consecutive_challenges"] == 2
+    assert fake_site.requests == ["/hc/abc/fail"]
+
+
+def test_unavailable_video_gets_a_permanent_record(archive):
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"yj-wSRJwrrc": "unavailable"})}
+    r = run_backfill("--now", "--ids", "yj-wSRJwrrc", "am_oeAoUhew", archive=archive, env=env)
+    assert r.returncode == 0, r.stderr
+    rec = read_record(archive, "yj-wSRJwrrc")
+    assert rec["status"] == "unavailable"
+    assert "Video unavailable" in rec["unavailable_reason"]
+    assert "audio" not in rec
+    assert read_status(archive)["unavailable_total"] == 1
+    assert read_status(archive)["records_total"] == 2
+
+    again = run_backfill("--now", "--ids", "yj-wSRJwrrc", "am_oeAoUhew", archive=archive, env=env)
+    assert again.returncode == 0
+    assert len(ytdlp_calls(archive)) == 2
+
+
+def test_three_consecutive_failures_trip_the_breaker(archive, fake_site):
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"a1": "fail", "a2": "fail", "a3": "fail"}),
+           "AIE_HEALTHCHECK_URL": fake_site.url + "/hc/abc"}
+    r = run_backfill("--now", "--ids", "a1", "a2", "a3", "knDDGYHnnSI", archive=archive, env=env)
+    assert r.returncode == 1
+    assert "error: completed 0, failed 3, remaining 4" in r.stdout
+    assert [c[-1] for c in ytdlp_calls(archive)] == [watch_url("a1"), watch_url("a2"), watch_url("a3")]
+    status = read_status(archive)
+    assert status["last_outcome"] == "error"
+    assert status["videos_failed_last_run"] == 3
+    assert status["last_error"].startswith("a3: ERROR: Unable to download webpage")
+    assert fake_site.requests == ["/hc/abc/fail"]
+    assert not (archive / "videos" / "a1" / "a1.fetch.json").exists()
+
+
+def test_failure_between_successes_does_not_trip_the_breaker(archive):
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"b1": "fail", "b2": "fail", "b3": "fail"})}
+    r = run_backfill("--now", "--ids", "b1", "b2", "knDDGYHnnSI", "b3", "am_oeAoUhew", archive=archive, env=env)
+    assert r.returncode == 0, r.stderr
+    assert "success: completed 2, failed 3, remaining 3" in r.stdout
+
+
+def test_dubbed_track_is_refused(archive):
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"knDDGYHnnSI": "dub"})}
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert r.returncode == 0, r.stderr
+    d = archive / "videos" / "knDDGYHnnSI"
+    assert not (d / "knDDGYHnnSI.fetch.json").exists()
+    assert (d / "knDDGYHnnSI.f251-11.webm").exists()      # left for inspection
+    status = read_status(archive)
+    assert status["videos_failed_last_run"] == 1
+    assert "wrong_track" in status["last_error"]
+    assert "251-11" in status["last_error"]
