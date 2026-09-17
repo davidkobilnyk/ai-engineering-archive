@@ -36,7 +36,12 @@ class Status:
         path = archive / STATUS_NAME
         if not path.exists():
             return cls()
-        data = json.loads(path.read_text())
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return cls()                  # unreadable status starts fresh; records are the truth
+        if not isinstance(data, dict):
+            return cls()
         known = {f.name for f in fields(cls)}
         return cls(**{k: v for k, v in data.items() if k in known})
 

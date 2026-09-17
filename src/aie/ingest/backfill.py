@@ -90,8 +90,10 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
     duration = info.get("duration")
     if duration is None:
         raise verify.VerifyError("info.json has no duration")
-    if not rows:
-        rows = ytdlp.rows_from_files(out_dir, video_id, info)
+    # yt-dlp prints no row for a file it skipped with --no-overwrites; take those from disk.
+    printed_roles = {audio_role(row.acodec) for row in rows}
+    rows = rows + [row for row in ytdlp.rows_from_files(out_dir, video_id, info)
+                   if audio_role(row.acodec) not in printed_roles]
 
     audio: dict[str, dict] = {}
     for row in rows:

@@ -404,3 +404,37 @@ def test_sigterm_stops_after_the_current_video_and_leaves_no_record(archive):
     assert status["last_outcome"] == "interrupted"
     assert status["current_video"] is None
     assert len(ytdlp_calls(archive)) == 1
+
+
+# ---------------------------------------------------------------- review fixes
+
+def test_one_audio_file_left_from_a_killed_run_is_recorded(archive):
+    run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    d = archive / "videos" / "knDDGYHnnSI"
+    (d / "knDDGYHnnSI.fetch.json").unlink()
+    (d / "knDDGYHnnSI.f140.m4a").unlink()             # the webm survives; yt-dlp reprints only 140
+
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+
+    assert r.returncode == 0, r.stderr
+    rec = read_record(archive, "knDDGYHnnSI")
+    assert rec["audio"]["opus"]["streamhash_sha256"] == OPUS_STREAMHASH
+    assert rec["audio"]["aac"]["streamhash_sha256"] == AAC_STREAMHASH
+
+
+def test_leftover_record_temp_file_does_not_block_the_video(archive):
+    run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    d = archive / "videos" / "knDDGYHnnSI"
+    (d / "knDDGYHnnSI.fetch.json").rename(d / "knDDGYHnnSI.fetch.json.tmp")
+
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+
+    assert r.returncode == 0, r.stderr
+    assert read_record(archive, "knDDGYHnnSI")["audio"]["opus"]["format_id"] == "251"
+
+
+def test_corrupt_status_file_does_not_crash_the_run(archive):
+    (archive / "status.json").write_text("{")
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    assert r.returncode == 0, r.stderr
+    assert read_status(archive)["last_outcome"] == "success"

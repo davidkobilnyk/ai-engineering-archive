@@ -100,7 +100,7 @@ def rows_from_files(out_dir: Path, video_id: str, info: dict) -> list[Row]:
     rows = []
     prefix = f"{video_id}.f"
     for file in sorted(out_dir.glob(f"{prefix}*")):
-        if file.suffix in (".part", ".ytdl"):
+        if file.suffix in (".part", ".ytdl") or file.name.startswith(f"{video_id}.fetch.json"):
             continue
         format_id = file.name[len(prefix):-len(file.suffix)]
         f = by_id.get(format_id, {})
