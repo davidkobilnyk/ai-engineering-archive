@@ -28,6 +28,7 @@ One row per run of `scripts/vpn_test.py` on a Proton exit. Raw logs and
 | 09-18 09:37 | DK#148 | 159.26.114.8 | AS208172 | on | 9 | 6 | 9/h | **Subtitle 429** on 2bvtay8wGYI at 10:01, 24 min in. 2 failed (known-bad videos) | not checked | `2026-09-18-0537` |
 | 09-18 10:04 | DO#27 | 89.238.155.157 | AS9009 | on | 2 | 0 | 11/h | **Bot check** on 2nd video (jQDXzEVHMSE) at 10:07: `/watch` 302 to `google.com/sorry`, 429 there. 1st video failed locally (known-bad) | not checked | `2026-09-18-0604` |
 | 09-18 11:37 | FR#414 | 79.127.169.34 | AS212238 | **off** | 80 | 73 | 20/h | **Ran the full 4 h, no block.** 0 subtitle requests, 0 x 429, no bot check. 3 audio 403s on googlevideo (AMiyLItEtLA, ZyIoTOAbRfs, GgLQ02aO-hs; each video counted as failed, run went on), 4 wrong_track (the 2 known-bad + 2JX6JYyQG4Y, RGe6EjucbzI) | not checked | `2026-09-18-0737` |
+| 09-18 17:22 | FR#414 (same IP as 11:37) | 79.127.169.34 | AS212238 | **only** | 4 | 3 | 4/h | **Subtitle 429** on 3ZMUiFaQ3qg at 17:32, 9 min in. That request was a **Ukrainian-to-English translation** (`lang=uk&tlang=en`). The 3 ok were plain `lang=en` and saved readable English; records updated | not checked | `2026-09-18-1322` |
 
 Log names are `vpn-test-2026-09-17-<HHMM>.log` (local time) unless given in full.
 
@@ -52,6 +53,17 @@ Log names are `vpn-test-2026-09-17-<HHMM>.log` (local time) unless given in full
   couple of videos hit a subtitle 429 after 5-17 starts in that run, except three that
   ended for other reasons (CO#77 13:05, 6 starts, Ctrl-C; CO#77 13:38, 58 starts, ASN lookup failed; AR#91 20:58, 26 starts, Ctrl-C). This is
   one run on one IP, but it is the most starts of any run without a block.
+- **Subtitles only on the same IP (FR#414, 17:22): 429 on the 4th subtitle
+  request, 9 min in.** Audio downloads are not needed to hit the limit.
+- **Both 429s whose subtitle URL we have were translation requests**
+  (`lang=uk&tlang=en&variant=timing-optimized`): 2bvtay8wGYI on DK#148 and
+  3ZMUiFaQ3qg on FR#414. The same 2bvtay8wGYI got a 200 later when YouTube
+  offered plain `lang=en`. Out of about 140 subtitle requests on record, 4
+  were translations (2 ok: MkRYPFIMCSA, vSx5IULvBns; 2 got 429). No plain
+  `lang=en` request is known to have got a 429, but the URLs of the other 5
+  subtitle 429s were not kept (logs overwritten on retry, or the home job
+  does not log them). Lead, not proven: translated subtitle requests may be
+  what trips the limit. Asking for `en-orig` (next-round item 3) would test it.
 - **Two known-bad videos use up the first slots of every run:** CvRngaQZQ3Y
   (`unexpected codec ''`, leftover-file failure) and jQDXzEVHMSE (`wrong_track`).
 

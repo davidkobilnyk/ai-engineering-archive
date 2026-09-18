@@ -80,7 +80,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_bf.add_argument("--subtitles", choices=["on", "off", "only"], default="on",
                       help="on (default): audio and captions; off: audio only, record marks captions "
                            "not_requested; only: fetch captions for records marked not_requested")
+    p_audit = sub.add_parser("audit-audio", help="recheck fetched audio files on the archive drive: "
+                                                 "full decode, sizes, stream hashes, opus vs aac")
+    p_audit.add_argument("--archive-dir", type=Path,
+                         default=Path(os.environ.get("AIE_ARCHIVE_DIR", "/Volumes/Archive")))
+    p_audit.add_argument("--ffmpeg-dir", type=Path, default=Path("/opt/homebrew/bin"),
+                         help="directory holding ffmpeg and ffprobe")
     return parser
+
+
+def cmd_audit_audio(args) -> int:
+    tools = ytdlp_mod.Tools(Path("yt-dlp"), args.ffmpeg_dir, Path("deno"))
+    return backfill_mod.audit(tools, args.archive_dir.resolve())
 
 
 def cmd_sync(args) -> int:
@@ -200,6 +211,7 @@ def cmd_backfill(args) -> int:
 COMMANDS = {
     "sync": cmd_sync, "index": cmd_index, "search": cmd_search,
     "show": cmd_show, "talks": cmd_talks, "status": cmd_status, "backfill": cmd_backfill,
+    "audit-audio": cmd_audit_audio,
 }
 
 

@@ -8,7 +8,10 @@ exit codes, --no-overwrites, .part files, and --version.
 Environment:
   FAKE_YTDLP_LOG     argv is appended to this file as one JSON line per call
   FAKE_YTDLP_SCRIPT  JSON object mapping video id to a mode:
-                     ok (default), challenge, unavailable, fail, dub
+                     ok (default), challenge, unavailable, fail, dub,
+                     silent (both tracks silence), mismatch (opus tone, aac silence),
+                     truncated (opus cut to 5000 bytes, full size still listed),
+                     corrupt (400 aac bytes flipped mid-file, same size)
   FAKE_YTDLP_SLEEP   seconds to hold each .part file before finishing it
 
 Like the real one, it writes captions only with --write-auto-subs, the info
@@ -16,7 +19,6 @@ JSON only with --write-info-json, and no audio with --skip-download.
 """
 import json
 import os
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -55,10 +57,16 @@ if mode == "fail":
 
 formats = [
     {"format_id": "251", "acodec": "opus", "abr": 113.488, "ext": "webm", "language": "en-US",
-     "format_note": "English (US) original (default), medium", "fixture": "silence.f251.webm"},
+     "format_note": "English (US) original (default), medium", "fixture": "tone.f251.webm"},
     {"format_id": "140", "acodec": "mp4a.40.2", "abr": 129.479, "ext": "m4a", "language": "en-US",
-     "format_note": "English (US) original (default), medium", "fixture": "silence.f140.m4a"},
+     "format_note": "English (US) original (default), medium", "fixture": "tone.f140.m4a"},
 ]
+if mode == "silent":
+    formats = [{**f, "fixture": f["fixture"].replace("tone", "silence")} for f in formats]
+if mode == "mismatch":
+    formats[1] = {**formats[1], "fixture": "silence.f140.m4a"}
+for f in formats:
+    f["filesize"] = (FIXTURES / f["fixture"]).stat().st_size  # what YouTube lists
 if mode == "dub":
     formats[0] = {**formats[0], "format_id": "251-11", "abr": 146.859,
                   "format_note": "Malayalam, medium", "language": "ml"}
@@ -71,7 +79,13 @@ for fmt in ([] if "--skip-download" in argv else formats):
         print(f"[download] {target} has already been downloaded", file=sys.stderr)
         continue
     part = target.with_name(target.name + ".part")
-    shutil.copy(FIXTURES / fmt["fixture"], part)
+    data = bytearray((FIXTURES / fmt["fixture"]).read_bytes())
+    if mode == "truncated" and fmt["format_id"] == "251":
+        data = data[:5000]
+    if mode == "corrupt" and fmt["format_id"] == "140":
+        for i in range(len(data) // 2, len(data) // 2 + 400):
+            data[i] ^= 0xFF
+    part.write_bytes(bytes(data))
     if hold:
         time.sleep(hold)
     os.replace(part, target)

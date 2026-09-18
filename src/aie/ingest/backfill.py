@@ -12,6 +12,11 @@ from . import guards, records, verify, ytdlp
 from .status import Status, ping, utc_now_iso
 
 DURATION_TOLERANCE_S = 2.0
+# Opus vs AAC of one video, decoded (ewtOo0scUh0, 19 min: 0.04 s and 0.0 dB apart).
+TRACKS_DURATION_TOLERANCE_S = 0.5
+TRACKS_VOLUME_TOLERANCE_DB = 1.0
+# Talks measured -25 to -35 dB mean; below this is near-silent (kept, with a warning).
+QUIET_DB = -50.0
 MAX_CONSECUTIVE_FAILURES = 3
 BACKOFF_HOURS = 24
 CHALLENGE_ALERT_STRIKES = 2
@@ -92,6 +97,80 @@ def audio_role(acodec: str) -> str | None:
     return None
 
 
+def listed_bytes(info: dict, format_id: str) -> int | None:
+    """The size YouTube lists for a format in info.json, if any."""
+    for fmt in info.get("formats") or []:
+        if fmt.get("format_id") == format_id:
+            return fmt.get("filesize")
+    return None
+
+
+def check_track(tools: ytdlp.Tools, file: Path, role: str, duration: float,
+                listed: int | None) -> tuple[verify.Probe, verify.Decoded]:
+    """Every check on one audio file. Raises VerifyError."""
+    probe = verify.ffprobe_audio(tools.ffprobe, file)
+    if probe.codec != role:
+        raise verify.VerifyError(f"{file.name}: codec {probe.codec}, expected {role}")
+    if abs(probe.duration_s - float(duration)) > DURATION_TOLERANCE_S:
+        raise verify.VerifyError(f"{file.name}: duration {probe.duration_s:.1f}s vs metadata {duration}s")
+    # Opus is kept exactly as downloaded; yt-dlp remuxes AAC (FixupM4a), so its size differs.
+    if role == "opus" and listed and file.stat().st_size != listed:
+        raise verify.VerifyError(f"{file.name}: {file.stat().st_size} bytes, YouTube lists {listed}")
+    decoded = verify.decode_audio(tools.ffmpeg, file, probe.sample_rate, probe.channels)
+    if decoded.errors:
+        raise verify.VerifyError(f"{file.name}: {len(decoded.errors)} decode error(s), first: "
+                                 f"{decoded.errors[0]}")
+    return probe, decoded
+
+
+def check_pair(opus: dict, aac: dict) -> None:
+    """Two separate downloads of the same source: they should decode alike."""
+    if (abs(opus["decoded_duration_s"] - aac["decoded_duration_s"]) > TRACKS_DURATION_TOLERANCE_S
+            or abs(opus["mean_volume_db"] - aac["mean_volume_db"]) > TRACKS_VOLUME_TOLERANCE_DB):
+        raise verify.VerifyError(
+            f"opus and aac disagree: {opus['decoded_duration_s']}s at {opus['mean_volume_db']} dB vs "
+            f"{aac['decoded_duration_s']}s at {aac['mean_volume_db']} dB")
+
+
+def audit_video(tools: ytdlp.Tools, archive: Path, video_id: str) -> str | None:
+    """Recheck an ok record's audio files on disk; the problem found, or None."""
+    record = records.read_record(archive, video_id)
+    out_dir = records.video_dir(archive, video_id)
+    try:
+        info = json.loads((out_dir / f"{video_id}.info.json").read_text())
+        measured = {}
+        for role, entry in record["audio"].items():
+            file = out_dir / entry["file"]
+            if not file.exists():
+                raise verify.VerifyError(f"missing file {file.name}")
+            _, decoded = check_track(tools, file, role, record["duration_s"],
+                                     listed_bytes(info, entry["format_id"]))
+            if verify.streamhash_sha256(tools.ffmpeg, file) != entry["streamhash_sha256"]:
+                raise verify.VerifyError(f"{file.name}: stream hash differs from the record")
+            measured[role] = {"decoded_duration_s": decoded.duration_s, "mean_volume_db": decoded.mean_volume_db}
+        check_pair(measured["opus"], measured["aac"])
+    except (verify.VerifyError, OSError, KeyError, ValueError) as e:
+        return str(e)
+    return None
+
+
+def audit(tools: ytdlp.Tools, archive: Path, log=print) -> int:
+    """Recheck every ok record; prints one line per video. Exit code 1 if any problem."""
+    ok = problems = 0
+    for video_id in sorted(records.done_ids(archive)):
+        if (records.read_record(archive, video_id) or {}).get("status") != "ok":
+            continue
+        problem = audit_video(tools, archive, video_id)
+        if problem:
+            problems += 1
+            log(f"{video_id}\tPROBLEM\t{problem}")
+        else:
+            ok += 1
+            log(f"{video_id}\tok")
+    log(f"audited {ok + problems}: ok {ok}, problems {problems}")
+    return 1 if problems else 0
+
+
 def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row],
                  yt_dlp_version: str) -> dict:
     """Spec section 7: every check, then the record. Raises VerifyError."""
@@ -122,25 +201,29 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
             raise verify.VerifyError(f"missing file {file.name}")
         if file.with_name(file.name + ".part").exists():
             raise verify.VerifyError(f"partial file beside {file.name}")
-        probe = verify.ffprobe_audio(cfg.tools.ffprobe, file)
-        if probe.codec != role:
-            raise verify.VerifyError(f"{file.name}: codec {probe.codec}, expected {role}")
-        if abs(probe.duration_s - float(duration)) > DURATION_TOLERANCE_S:
-            raise verify.VerifyError(
-                f"{file.name}: duration {probe.duration_s:.1f}s vs metadata {duration}s")
+        listed = listed_bytes(info, row.format_id)
+        probe, decoded = check_track(cfg.tools, file, role, duration, listed)
         audio[role] = {
             "format_id": row.format_id, "file": file.name, "bytes": file.stat().st_size,
             "codec": probe.codec, "abr_kbps": row.abr, "language": row.language,
             "format_note": row.format_note, "probe_duration_s": round(probe.duration_s, 3),
+            "decoded_duration_s": decoded.duration_s, "mean_volume_db": decoded.mean_volume_db,
             "streamhash_sha256": verify.streamhash_sha256(cfg.tools.ffmpeg, file)}
+        if role == "opus":
+            audio[role]["listed_bytes"] = listed
     missing = {"opus", "aac"} - audio.keys()
     if missing:
         raise verify.VerifyError(f"missing audio: {', '.join(sorted(missing))}")
+    opus, aac = audio["opus"], audio["aac"]
+    check_pair(opus, aac)
 
     if cfg.subtitles == "off":
         captions, warnings = dict(CAPTIONS_NOT_REQUESTED), ["captions_not_requested"]
     else:
         captions, warnings = captions_block(out_dir, video_id)
+
+    if max(opus["mean_volume_db"], aac["mean_volume_db"]) < QUIET_DB:
+        warnings.append("audio_quiet")
 
     return {
         "schema_version": records.SCHEMA_VERSION, "video_id": video_id, "status": "ok",

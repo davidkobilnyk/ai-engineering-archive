@@ -202,6 +202,26 @@ Exactly one Opus row and one AAC row must be present. The caption file, if
 present, must parse as JSON with an `events` list. The info.json must
 parse and carry `duration`.
 
+Added 2026-09-18, because step 4 reads only the container header: a file
+cut to 5000 bytes, or with 400 bytes damaged mid-file, still reported its
+full duration there (measured on the test fixtures).
+
+6. The Opus file size equals the `filesize` info.json lists for its format.
+   Not applied to AAC: yt-dlp's `FixupM4a` remuxes it, which changed one
+   file by 13 KB.
+7. Full decode (`ffmpeg -loglevel level+info -i <file> -af volumedetect -f null -`)
+   prints no error lines. Records `decoded_duration_s` (decoded samples /
+   rate / channels) and `mean_volume_db`, plus Opus `listed_bytes`.
+8. Opus and AAC agree: decoded durations within 0.5 s and mean volume
+   within 1 dB. On 25 real talks (FR#414) the worst gaps were 0.059 s and
+   0.1 dB, with 0 decode errors; decoding took about 3 s per video.
+9. If both tracks average below -50 dB (talks measured -25 to -35 dB), the
+   record is still written with the warning `audio_quiet`.
+
+`aie audit-audio --archive-dir <root>` reruns 3, 4 and 6 to 8 on every ok
+record's files, and recomputes each stream hash against the record. It
+changes nothing, prints one line per video, and exits 1 if any problem.
+
 ## 8. Outcome classification and the run loop
 
 Per video, from exit code and stderr, in this order:

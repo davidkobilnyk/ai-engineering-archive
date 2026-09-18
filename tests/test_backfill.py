@@ -15,8 +15,8 @@ from zoneinfo import ZoneInfo
 
 from conftest import backfill_command, backfill_env, run_backfill, ytdlp_calls
 
-OPUS_STREAMHASH = "e80bf0d53e2e9756c2a0dcf16a486493e917cacf4cb57adcadc9394eac2d7eb4"
-AAC_STREAMHASH = "4025563f21c80dda474e195f5b8d3c8b5165b31a17af5c477114d401dce81957"
+OPUS_STREAMHASH = "f7b1b18bd04034c21c1f4b9d0ae12d3390bb1d30b7935ab96a0cb2a6ca86c4d8"
+AAC_STREAMHASH = "8498e98adc87b1d02da471ea127ddb111f7019a7be8cc0c5ec2a95cc7475a4a6"
 
 
 def read_status(archive):
@@ -52,13 +52,13 @@ def test_tracer_two_ids_fetched_verified_recorded_then_skipped(archive):
         assert rec["audio"]["opus"]["format_id"] == "251"
         assert rec["audio"]["opus"]["file"] == f"{vid}.f251.webm"
         assert rec["audio"]["opus"]["codec"] == "opus"
-        assert rec["audio"]["opus"]["bytes"] == 1010
+        assert rec["audio"]["opus"]["bytes"] == 10973
         assert rec["audio"]["opus"]["language"] == "en-US"
         assert rec["audio"]["opus"]["streamhash_sha256"] == OPUS_STREAMHASH
         assert rec["audio"]["aac"]["format_id"] == "140"
         assert rec["audio"]["aac"]["file"] == f"{vid}.f140.m4a"
         assert rec["audio"]["aac"]["codec"] == "aac"
-        assert rec["audio"]["aac"]["bytes"] == 1271
+        assert rec["audio"]["aac"]["bytes"] == 17333
         assert rec["audio"]["aac"]["streamhash_sha256"] == AAC_STREAMHASH
         assert rec["captions"]["file"] == f"{vid}.en.json3"
         assert rec["captions"]["events"] == 1
@@ -483,3 +483,91 @@ def test_subtitles_only_pass_touches_only_records_marked_not_requested(archive):
     assert [c[-1] for c in ytdlp_calls(archive)[2:]] == [watch_url("am_oeAoUhew")]
     assert read_record(archive, "knDDGYHnnSI") == with_captions
     assert "success: completed 1, failed 0, remaining 0" in only.stdout
+
+
+# ---------------------------------------------------------------- full-decode audio checks
+# Literals from tests/fixtures/audio/README.md (decode table): both tone
+# tracks decode to 1.000 s at -24.1 dB; the opus file is 10973 bytes.
+
+def test_record_holds_full_decode_results_and_listed_size(archive):
+    result = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    assert result.returncode == 0, result.stderr
+
+    rec = read_record(archive, "knDDGYHnnSI")
+    for role in ("opus", "aac"):
+        assert rec["audio"][role]["decoded_duration_s"] == 1.0
+        assert rec["audio"][role]["mean_volume_db"] == -24.1
+    assert rec["audio"]["opus"]["listed_bytes"] == 10973
+    assert rec["warnings"] == []
+
+
+def fetch_in_mode(archive, mode):
+    env = {"FAKE_YTDLP_SCRIPT": json.dumps({"knDDGYHnnSI": mode})}
+    r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive, env=env)
+    assert r.returncode == 0, r.stderr
+    return read_status(archive)
+
+
+def test_truncated_opus_is_refused_though_its_header_says_full_length(archive):
+    # The 5000-byte cut still probes as 1.008 s, so only the decode and the
+    # listed size (10973) can catch it.
+    status = fetch_in_mode(archive, "truncated")
+
+    assert not (archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json").exists()
+    assert status["videos_failed_last_run"] == 1
+    assert "knDDGYHnnSI.f251.webm" in status["last_error"]
+    assert "5000 bytes" in status["last_error"] and "10973" in status["last_error"]
+
+
+def test_aac_damaged_mid_file_is_refused_on_decode_errors(archive):
+    status = fetch_in_mode(archive, "corrupt")
+
+    assert not (archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json").exists()
+    assert status["videos_failed_last_run"] == 1
+    assert "knDDGYHnnSI.f140.m4a" in status["last_error"]
+    assert "decode error" in status["last_error"]
+
+
+def test_opus_and_aac_that_disagree_are_refused(archive):
+    # Each file is valid alone; the tone is -24.1 dB and the silence -91.0 dB.
+    status = fetch_in_mode(archive, "mismatch")
+
+    assert not (archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json").exists()
+    assert status["videos_failed_last_run"] == 1
+    assert "opus and aac disagree" in status["last_error"]
+    assert "-24.1" in status["last_error"] and "-91.0" in status["last_error"]
+
+
+def test_silent_audio_is_kept_with_a_warning(archive):
+    fetch_in_mode(archive, "silent")
+
+    rec = read_record(archive, "knDDGYHnnSI")
+    assert rec["status"] == "ok"
+    assert rec["audio"]["opus"]["mean_volume_db"] == -91.0
+    assert rec["warnings"] == ["audio_quiet"]
+
+
+# ---------------------------------------------------------------- aie audit-audio
+
+def run_audit(archive):
+    from conftest import FFMPEG_DIR
+    import sys
+    return subprocess.run([sys.executable, "-m", "aie", "audit-audio", "--archive-dir", str(archive),
+                           "--ffmpeg-dir", str(FFMPEG_DIR)], capture_output=True, text=True)
+
+
+def test_audit_passes_intact_files_then_reports_one_damaged_on_disk(archive):
+    run_backfill("--now", "--ids", "knDDGYHnnSI", "am_oeAoUhew", archive=archive)
+
+    clean = run_audit(archive)
+    assert clean.returncode == 0, clean.stderr
+    assert "audited 2: ok 2, problems 0" in clean.stdout
+
+    opus = archive / "videos" / "am_oeAoUhew" / "am_oeAoUhew.f251.webm"
+    opus.write_bytes(opus.read_bytes()[:5000])
+    damaged = run_audit(archive)
+
+    assert damaged.returncode == 1
+    assert "audited 2: ok 1, problems 1" in damaged.stdout
+    problem = [l for l in damaged.stdout.splitlines() if l.startswith("am_oeAoUhew\t")]
+    assert len(problem) == 1 and "am_oeAoUhew.f251.webm" in problem[0] and "5000 bytes" in problem[0]
