@@ -1,0 +1,20 @@
+[youtube] Extracting URL: https://www.youtube.com/watch?q
+[youtube] 2bvtay8wGYI: Downloading webpage
+[youtube] Sleeping 3.0 seconds ...
+[youtube] 2bvtay8wGYI: Downloading visionos player API JSON
+[youtube] Sleeping 3.0 seconds ...
+[youtube] 2bvtay8wGYI: Downloading m3u8 information
+[youtube] Sleeping 3.0 seconds ...
+[youtube] 2bvtay8wGYI: Downloading player ecb23058-main
+[youtube] [jsc:deno] Solving JS challenges using deno
+[info] 2bvtay8wGYI: Downloading subtitles: en
+[info] 2bvtay8wGYI: Downloading 2 format(s): 251-20, 140-20
+[info] Writing video subtitles to: /Volumes/Archive/vpn-test/videos/2bvtay8wGYI/2bvtay8wGYI.f251-20.en.json3
+> GET /api/timedtext?q HTTP/2
+Host: www.youtube.com
+< HTTP/2 429 
+< content-length: 1103
+< content-type: text/html; charset=UTF-8
+< date: Fri, 18 Sep 2026 10:01:22 GMT
+< 
+ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests

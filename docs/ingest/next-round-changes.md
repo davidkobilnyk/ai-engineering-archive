@@ -50,3 +50,31 @@ line (`dig +short TXT <reversed home IPv4>.origin.asn.cymru.com`).
 
 **What to change:** parse every line and take the ASN of the longest prefix;
 treat unparseable output as unknown (`skipped:asn-unknown`), as now.
+
+### 3. Captions: fetch the original English track, not a translation
+
+**Why:** `--sub-langs en` (`src/aie/ingest/ytdlp.py:68`) asks for YouTube's
+`en` auto-caption track. For some videos, `en` is not the English speech
+recognition but YouTube's **Ukrainian** speech recognition machine-translated
+into English (`lang=uk&tlang=en&variant=timing-optimized` in the subtitle
+URL). Measured 2026-09-18 across 136 saved logs in `/Volumes/Archive/vpn-test/videos/`:
+
+| Video | Talk | Result |
+|---|---|---|
+| MkRYPFIMCSA | Security Firewall for Agents, Ryan Dahl | Translated captions saved |
+| vSx5IULvBns | Always-on agents run production without the on-call tax | Translated captions saved ("without duty tax") |
+| 2bvtay8wGYI | (not fetched) | Subtitle 429 on this request (DK#148, 10:01 UTC) |
+
+All three are English talks (`language: en-US` in the info JSON) and all list
+an `en-orig` auto-caption track, which is the English speech recognition.
+The other 133 logs asked for `lang=en` directly.
+
+**Effect:** caption text for those videos is a translation of a mis-detected
+transcript, so it is less accurate than the `en-orig` track. The fetch still
+counts as ok and the record looks normal.
+
+**What to change:** request `en-orig` first (e.g. `--sub-langs en-orig`,
+falling back to `en` only when `en-orig` is missing). Record which track was
+saved in the fetch record. Re-fetch captions for videos already saved with a
+`tlang` track (find them by the subtitle URL in `.yt-dlp.log` or
+`.traffic.log`). Not checked: whether the home archive has any such videos.

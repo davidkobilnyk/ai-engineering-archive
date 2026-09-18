@@ -9,7 +9,10 @@ Differences from the nightly job, all deliberate:
 - Requires the VPN: refuses to start, and stops mid-run, if the default route is
   the physical interface or the egress ASN is Charter's.
 - yt-dlp gets -v and --print-traffic; stdout is saved per video so the status
-  line and headers (e.g. Retry-After) of any 403/429 are on disk.
+  line and headers (e.g. Retry-After) of any 403/429 are on disk. Request counts
+  read both streams: subtitles go through curl_cffi when it is installed, and
+  its trace is on stderr, not in --print-traffic. The two dig lookups per video
+  are counted too.
 - Skips the three videos that failed last night on the wrong_track check (a
   verify issue, not a network one) to save transfer time.
 - Queue order, newest upload first within each group (order file and report from
@@ -55,6 +58,8 @@ WRONG_TRACK_LAST_NIGHT =["kQmXtrmQ5Zg", "OkEGJ5G3foU", "OimPoLxioYg"]
 SEND = re.compile(r"^send: b['\"](GET|POST|HEAD) (\S+) HTTP/[\d.]+(?:.*?\\r\\nHost: ([^\\]+))?")
 REPLY = re.compile(r"^reply: 'HTTP/[\d.]+ (\d{3})")
 HEADER = re.compile(r"^header: (.+)$")
+CURL_SEND = re.compile(r"^> (?:GET|POST|HEAD) (\S+) HTTP/[\d.]+")
+CURL_REPLY = re.compile(r"^< HTTP/[\d.]+ (\d{3})")
 DONE = re.compile(r"^\[download\] 100% of\s+~?\s*([\d.]+)(KiB|MiB|GiB) in \S+ at\s+([\d.]+)(KiB|MiB)/s")
 
 
@@ -66,6 +71,8 @@ def endpoint(path: str, host: str) -> str:
     p = path.split("?", 1)[0]
     if "timedtext" in p:
         return "caption"
+    if p.startswith("/api/manifest/"):
+        return "manifest"
     if p.startswith("/videoplayback") or "googlevideo" in host:
         return "media"
     if p.startswith("/youtubei/"):
@@ -77,9 +84,12 @@ def endpoint(path: str, host: str) -> str:
     return p
 
 
-def parse_traffic(stdout: str) -> tuple[Counter, list[dict]]:
+def parse_traffic(stdout: str, stderr: str = "") -> tuple[Counter, list[dict]]:
     """(requests by endpoint and status, non-2xx replies with their headers).
-    URLs are cut at '?' so tokens are not copied into the summary."""
+    stdout holds --print-traffic from yt-dlp's urllib/requests handlers; stderr
+    holds the curl_cffi trace (-v), which is how subtitles are fetched when
+    curl_cffi is installed. URLs are cut at '?' so tokens are not copied into
+    the summary."""
     counts: Counter = Counter()
     problems: list[dict] = []
     last_send = ("?", "?")
@@ -103,6 +113,30 @@ def parse_traffic(stdout: str) -> tuple[Counter, list[dict]]:
         m = HEADER.match(line)
         if m and current is not None:
             current["headers"].append(m.group(1))
+    path = None
+    current = None
+    for line in stderr.splitlines():
+        m = CURL_SEND.match(line)
+        if m:
+            path, current = m.group(1), None
+            continue
+        if path is not None and line.startswith("Host: "):
+            last_send = (endpoint(path, line[6:].strip()), line[6:].strip())
+            path = None
+            continue
+        m = CURL_REPLY.match(line)
+        if m:
+            code = int(m.group(1))
+            counts[f"{last_send[0]} {code}"] += 1
+            current = None
+            if code >= 300 and code not in (301, 302, 303, 307, 308):
+                current = {"endpoint": last_send[0], "host": last_send[1], "status": code, "headers": []}
+                problems.append(current)
+            continue
+        if current is not None and line.startswith("< ") and line[2:].strip():
+            current["headers"].append(line[2:].strip())
+        elif not line.startswith("< "):
+            current = None
     return counts, problems
 
 
@@ -128,6 +162,7 @@ class TrafficRunner(ytdlp.Runner):
         log_path.write_text(stderr)
         log_path.with_name(f"{video_id}.traffic.log").write_text(stdout)
         self.last_stdout = stdout
+        self.last_stderr = stderr
         return ytdlp.Outcome(ytdlp.classify(code, stderr), code, ytdlp.parse_rows(stdout),
                              ytdlp.last_error_line(stderr))
 
@@ -296,6 +331,10 @@ def main() -> int:
                 summary["stopped_because"] = f"{args.hours} h limit"
                 break
             tunnel, ip, asn = network()
+            # Two dig TXT lookups per video: public IP (ns1.google.com), then ASN (Cymru).
+            totals[f"dns:public-ip {'ok' if ip else 'fail'}"] += 1
+            if ip:
+                totals[f"dns:asn {'ok' if asn is not None else 'fail'}"] += 1
             problem = vpn_problem(tunnel, asn)
             if problem:
                 summary["stopped_because"] = f"vpn check: {problem}"
@@ -318,10 +357,10 @@ def main() -> int:
             hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
             pace = sum(1 for s in history if s > hour_ago)
             started = time.monotonic()
-            runner.last_stdout = ""
+            runner.last_stdout = runner.last_stderr = ""
             kind, detail = backfill.process_video(cfg, runner, video_id, version)
             elapsed = round(time.monotonic() - started)
-            counts, problems = parse_traffic(runner.last_stdout)
+            counts, problems = parse_traffic(runner.last_stdout, runner.last_stderr)
             totals.update(counts)
             for p in problems:
                 summary["non_2xx"].append({"at": now_iso(), "video_id": video_id, **p})
