@@ -13,8 +13,6 @@ Differences from the nightly job, all deliberate:
   read both streams: subtitles go through curl_cffi when it is installed, and
   its trace is on stderr, not in --print-traffic. The two dig lookups per video
   are counted too.
-- Skips the three videos that failed last night on the wrong_track check (a
-  verify issue, not a network one) to save transfer time.
 - Queue order, newest upload first within each group (order file and report from
   scripts/upload_order.py): (1) uploads not in the corpus yet, published in the
   last 14 days and 5-60 min long; (2) World's Fair 2026 talks; (3) the rest of the
@@ -53,7 +51,6 @@ RECENT_MAX_S = 60 * 60
 NEVER_OVER_S = 2 * 60 * 60
 # Queued next, still newest upload first within the group.
 FIRST_EVENTS = {"AI Engineer World's Fair 2026", "worldsfair-2026-online-track"}
-WRONG_TRACK_LAST_NIGHT =["kQmXtrmQ5Zg", "OkEGJ5G3foU", "OimPoLxioYg"]
 
 SEND = re.compile(r"^send: b['\"](GET|POST|HEAD) (\S+) HTTP/[\d.]+(?:.*?\\r\\nHost: ([^\\]+))?")
 REPLY = re.compile(r"^reply: 'HTTP/[\d.]+ (\d{3})")
@@ -277,11 +274,11 @@ def main() -> int:
     ids = [i for i in ids if events.get(i) in FIRST_EVENTS] + [i for i in ids if events.get(i) not in FIRST_EVENTS]
     new_uploads = recent_uploads_not_in_corpus(args.order_file.with_name("uploads-not-in-corpus.tsv"))
     ids = new_uploads + [i for i in ids if i not in set(new_uploads)]
-    skip = records.done_ids(HOME_ARCHIVE) | set(WRONG_TRACK_LAST_NIGHT)
+    skip = records.done_ids(HOME_ARCHIVE)
     queue = [i for i in backfill.build_queue(args.out, ids, args.subtitles) if i not in skip]
     print(f"queue: {len(queue)} videos: {len(new_uploads)} new uploads not in the corpus, then World's Fair 2026, "
-          f"then the rest; newest upload first in each (home records and last night's "
-          f"wrong_track IDs excluded); pace {args.per_hour}/h, cap {args.max_per_day} per 24 h")
+          f"then the rest; newest upload first in each (home records "
+          f"excluded); pace {args.per_hour}/h, cap {args.max_per_day} per 24 h")
     if args.dry_run:
         print("first 10:", " ".join(queue[:10]))
         return 0

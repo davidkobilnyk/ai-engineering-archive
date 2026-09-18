@@ -11,7 +11,9 @@ Environment:
                      ok (default), challenge, unavailable, fail, dub,
                      silent (both tracks silence), mismatch (opus tone, aac silence),
                      truncated (opus cut to 5000 bytes, full size still listed),
-                     corrupt (400 aac bytes flipped mid-file, same size)
+                     corrupt (400 aac bytes flipped mid-file, same size),
+                     single (English only, no "original" label: no other tracks exist),
+                     unlabelled_dubs (same English tracks, plus a Spanish dub listed)
   FAKE_YTDLP_SLEEP   seconds to hold each .part file before finishing it
 
 Like the real one, it writes captions only with --write-auto-subs, the info
@@ -67,6 +69,12 @@ if mode == "mismatch":
     formats[1] = {**formats[1], "fixture": "silence.f140.m4a"}
 for f in formats:
     f["filesize"] = (FIXTURES / f["fixture"]).stat().st_size  # what YouTube lists
+if mode in ("single", "unlabelled_dubs"):
+    formats = [{**f, "format_note": "medium, VISI", "language": "en"} for f in formats]
+extra_listed = []
+if mode == "unlabelled_dubs":
+    extra_listed = [{"format_id": "251-1", "acodec": "opus", "vcodec": "none", "language": "es",
+                     "format_note": "Spanish, medium, VISI"}]
 if mode == "dub":
     formats[0] = {**formats[0], "format_id": "251-11", "abr": 146.859,
                   "format_note": "Malayalam, medium", "language": "ml"}
@@ -100,5 +108,6 @@ info = out_dir / f"{video_id}.info.json"
 if "--write-info-json" in argv and not info.exists():
     info.write_text(json.dumps({
         "id": video_id, "title": "fixture talk", "duration": 1, "upload_date": "20240828",
-        "formats": [{k: v for k, v in fmt.items() if k != "fixture"} for fmt in formats]}))
+        "formats": [{**{k: v for k, v in fmt.items() if k != "fixture"}, "vcodec": "none"}
+                    for fmt in formats] + extra_listed}))
 print(IMPERSONATION_WARNING, file=sys.stderr)

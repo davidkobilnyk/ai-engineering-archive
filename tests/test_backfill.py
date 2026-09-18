@@ -571,3 +571,23 @@ def test_audit_passes_intact_files_then_reports_one_damaged_on_disk(archive):
     assert "audited 2: ok 1, problems 1" in damaged.stdout
     problem = [l for l in damaged.stdout.splitlines() if l.startswith("am_oeAoUhew\t")]
     assert len(problem) == 1 and "am_oeAoUhew.f251.webm" in problem[0] and "5000 bytes" in problem[0]
+
+
+# ---------------------------------------------------------------- wrong_track only when there is another language
+
+def test_single_language_english_talk_without_original_label_is_accepted(archive):
+    # Real case VrpEyglYgeU: 10 audio formats, all 'en', notes like 'medium, VISI';
+    # YouTube only says "original" when other language tracks exist.
+    fetch_in_mode(archive, "single")
+
+    rec = read_record(archive, "knDDGYHnnSI")
+    assert rec["status"] == "ok"
+    assert rec["audio"]["opus"]["format_note"] == "medium, VISI"
+    assert rec["audio"]["opus"]["language"] == "en"
+
+
+def test_unlabelled_english_track_is_still_refused_when_a_dub_is_listed(archive):
+    status = fetch_in_mode(archive, "unlabelled_dubs")
+
+    assert not (archive / "videos" / "knDDGYHnnSI" / "knDDGYHnnSI.fetch.json").exists()
+    assert "wrong_track: format 251 is 'en' 'medium, VISI'" in status["last_error"]

@@ -186,6 +186,9 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
     rows = rows + [row for row in ytdlp.rows_from_files(out_dir, video_id, info)
                    if audio_role(row.acodec) not in printed_roles]
 
+    has_other_languages = any(
+        (f.get("language") or "en").lower()[:2] != "en"
+        for f in info.get("formats") or [] if f.get("vcodec") == "none" and f.get("acodec") not in (None, "none"))
     audio: dict[str, dict] = {}
     for row in rows:
         role = audio_role(row.acodec)
@@ -193,7 +196,10 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
             raise verify.VerifyError(f"unexpected codec {row.acodec!r} for format {row.format_id}")
         if role in audio:
             raise verify.VerifyError(f"two {role} rows")
-        if not row.language.lower().startswith("en") or "original" not in row.format_note.lower():
+        # YouTube labels a track "original" only when other language tracks
+        # (dubs) exist, so the label is required only then.
+        if not row.language.lower().startswith("en") or (
+                has_other_languages and "original" not in row.format_note.lower()):
             raise verify.VerifyError(
                 f"wrong_track: format {row.format_id} is {row.language!r} {row.format_note!r}")
         file = row.filepath if row.filepath.is_absolute() else out_dir / row.filepath

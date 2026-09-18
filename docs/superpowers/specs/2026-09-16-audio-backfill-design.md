@@ -191,7 +191,12 @@ For each of the two audio rows from `after_move`:
    is no `.part` file beside it.
 2. The row's `language` starts with `en` and `format_note` contains
    `original` (the dub guard). Otherwise the video fails with reason
-   `wrong_track` and the files are left for inspection.
+   `wrong_track` and the files are left for inspection. Changed
+   2026-09-18: `original` is required only when info.json lists an audio
+   format in another language. YouTube adds the label only when dubs
+   exist, so single-language English talks (e.g. VrpEyglYgeU: 10 audio
+   formats, all `en`, notes like `medium, VISI`) were being refused; 8 such
+   videos had been, all valid on a full audio check.
 3. `ffprobe` codec is `opus` for the Opus row and `aac` for the AAC row.
 4. `ffprobe` format duration is within 2 s of `duration` in info.json
    (the truncation check from brief 04; both calibration talks differ by
