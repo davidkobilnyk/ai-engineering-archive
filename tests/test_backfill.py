@@ -438,3 +438,48 @@ def test_corrupt_status_file_does_not_crash_the_run(archive):
     r = run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
     assert r.returncode == 0, r.stderr
     assert read_status(archive)["last_outcome"] == "success"
+
+
+# ---------------------------------------------------------------- subtitles on | off | only
+
+NOT_REQUESTED = {"status": "not_requested",
+                 "reason": "audio-only fetch (--subtitles off); fetch later with --subtitles only"}
+
+
+def test_audio_only_fetch_marks_captions_not_requested_then_subtitles_pass_fills_them(archive):
+    off = run_backfill("--now", "--subtitles", "off", "--ids", "knDDGYHnnSI", archive=archive)
+    assert off.returncode == 0, off.stderr
+
+    d = archive / "videos" / "knDDGYHnnSI"
+    assert not (d / "knDDGYHnnSI.en.json3").exists()
+    rec = read_record(archive, "knDDGYHnnSI")
+    assert rec["status"] == "ok"
+    assert rec["audio"]["opus"]["streamhash_sha256"] == OPUS_STREAMHASH
+    assert rec["captions"] == NOT_REQUESTED
+    assert rec["warnings"] == ["captions_not_requested"]
+    assert "--write-auto-subs" not in ytdlp_calls(archive)[0]
+
+    only = run_backfill("--now", "--subtitles", "only", "--ids", "knDDGYHnnSI", archive=archive)
+    assert only.returncode == 0, only.stderr
+
+    call = ytdlp_calls(archive)[1]
+    assert "--skip-download" in call and "--write-auto-subs" in call
+    rec = read_record(archive, "knDDGYHnnSI")
+    assert rec["captions"]["file"] == "knDDGYHnnSI.en.json3"
+    assert rec["captions"]["events"] == 1
+    assert rec["warnings"] == []
+    assert rec["audio"]["opus"]["streamhash_sha256"] == OPUS_STREAMHASH
+
+
+def test_subtitles_only_pass_touches_only_records_marked_not_requested(archive):
+    run_backfill("--now", "--ids", "knDDGYHnnSI", archive=archive)
+    run_backfill("--now", "--subtitles", "off", "--ids", "am_oeAoUhew", archive=archive)
+    with_captions = read_record(archive, "knDDGYHnnSI")
+
+    only = run_backfill("--now", "--subtitles", "only", "--ids", "knDDGYHnnSI", "am_oeAoUhew",
+                        archive=archive)
+
+    assert only.returncode == 0, only.stderr
+    assert [c[-1] for c in ytdlp_calls(archive)[2:]] == [watch_url("am_oeAoUhew")]
+    assert read_record(archive, "knDDGYHnnSI") == with_captions
+    assert "success: completed 1, failed 0, remaining 0" in only.stdout

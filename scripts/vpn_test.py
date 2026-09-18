@@ -152,8 +152,8 @@ def speeds(stdout: str) -> list[str]:
 class TrafficRunner(ytdlp.Runner):
     """ytdlp.Runner with --print-traffic added and stdout saved beside the stderr log."""
 
-    def run(self, tools, video_id, out_dir, log_path, verbose=False):
-        cmd = ytdlp.build_command(tools, video_id, out_dir, verbose=True)
+    def run(self, tools, video_id, out_dir, log_path, verbose=False, subtitles="on"):
+        cmd = ytdlp.build_command(tools, video_id, out_dir, verbose=True, subtitles=subtitles)
         cmd.insert(-1, "--print-traffic")
         self.current = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stdout, stderr = self.current.communicate()
@@ -254,6 +254,9 @@ def main() -> int:
                     help="most video starts per hour; starts are spaced 3600/N s apart (default 20)")
     ap.add_argument("--max-per-day", type=int, default=200,
                     help="stop when this many videos started in the last 24 h, across runs (default 200)")
+    ap.add_argument("--subtitles", choices=["on", "off", "only"], default="on",
+                    help="on (default): audio and captions; off: audio only, record marks captions "
+                         "not_requested; only: captions for records marked not_requested")
     ap.add_argument("--order-file", type=Path, default=DEFAULT_OUT / "upload-order.txt",
                     help="video IDs newest upload first, from scripts/upload_order.py")
     args = ap.parse_args()
@@ -275,7 +278,7 @@ def main() -> int:
     new_uploads = recent_uploads_not_in_corpus(args.order_file.with_name("uploads-not-in-corpus.tsv"))
     ids = new_uploads + [i for i in ids if i not in set(new_uploads)]
     skip = records.done_ids(HOME_ARCHIVE) | set(WRONG_TRACK_LAST_NIGHT)
-    queue = [i for i in backfill.build_queue(args.out, ids) if i not in skip]
+    queue = [i for i in backfill.build_queue(args.out, ids, args.subtitles) if i not in skip]
     print(f"queue: {len(queue)} videos: {len(new_uploads)} new uploads not in the corpus, then World's Fair 2026, "
           f"then the rest; newest upload first in each (home records and last night's "
           f"wrong_track IDs excluded); pace {args.per_hour}/h, cap {args.max_per_day} per 24 h")
@@ -285,7 +288,7 @@ def main() -> int:
 
     tools = ytdlp.Tools(Path(sys.executable).with_name("yt-dlp"), Path("/opt/homebrew/bin"),
                         Path("/opt/homebrew/bin/deno"))
-    cfg = backfill.Config(archive=args.out, ids=ids, tools=tools, verbose=True)
+    cfg = backfill.Config(archive=args.out, ids=ids, tools=tools, verbose=True, subtitles=args.subtitles)
     version = ytdlp.version(tools)
     args.out.mkdir(parents=True, exist_ok=True)
     log_path = args.out / f"vpn-test-{datetime.now():%Y-%m-%d-%H%M}.log"
@@ -301,7 +304,8 @@ def main() -> int:
     signal.signal(signal.SIGINT, on_signal)
     signal.signal(signal.SIGTERM, on_signal)
 
-    summary = {"started": now_iso(), "yt_dlp_version": version, "start_ip": ip, "start_asn": asn,
+    summary = {"started": now_iso(), "subtitles": args.subtitles, "yt_dlp_version": version,
+               "start_ip": ip, "start_asn": asn,
                "ip_changes": [], "attempted": 0, "outcomes": {}, "requests": {}, "non_2xx": [],
                "stopped_because": None, "ended": None}
     totals: Counter = Counter()
@@ -319,7 +323,8 @@ def main() -> int:
             log.flush()
             print(text)
 
-        line("start", f"ip {ip}", f"AS{asn}", f"queue {len(queue)}", f"yt-dlp {version}")
+        line("start", f"ip {ip}", f"AS{asn}", f"queue {len(queue)}", f"yt-dlp {version}",
+             f"subtitles {args.subtitles}")
         deadline = time.monotonic() + args.hours * 3600
         consecutive_failures = 0
         current_ip = ip

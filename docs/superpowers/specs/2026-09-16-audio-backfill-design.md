@@ -163,7 +163,14 @@ warnings still reach stderr, which is saved per video. No `-v` unless
 
 `status` is `ok` or `unavailable` (with `unavailable_reason`, no `audio`).
 `captions` is `null` with a warning `captions_missing` when yt-dlp wrote
-none; that is recorded, not retried nightly. The record is written with
+none; that is recorded, not retried nightly. With `--subtitles off`
+(audio only, added 2026-09-18) captions are never requested, and the record
+says so in words instead of `null`:
+`"captions": {"status": "not_requested", "reason": "audio-only fetch
+(--subtitles off); fetch later with --subtitles only"}` with the warning
+`captions_not_requested`. `--subtitles only` fetches captions (no audio) for
+exactly those records, replaces the block with the normal one, adds
+`captions_fetched_at`, and drops the warning. The record is written with
 temp file plus `os.replace` after every check in section 7 passes, so a
 kill at any point leaves no record and the next run redoes the video
 (yt-dlp resumes the `.part` or reports "already downloaded").

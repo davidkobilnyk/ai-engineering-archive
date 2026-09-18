@@ -10,6 +10,9 @@ Environment:
   FAKE_YTDLP_SCRIPT  JSON object mapping video id to a mode:
                      ok (default), challenge, unavailable, fail, dub
   FAKE_YTDLP_SLEEP   seconds to hold each .part file before finishing it
+
+Like the real one, it writes captions only with --write-auto-subs, the info
+JSON only with --write-info-json, and no audio with --skip-download.
 """
 import json
 import os
@@ -34,8 +37,8 @@ if os.environ.get("FAKE_YTDLP_LOG"):
 url = argv[-1]
 video_id = url.split("v=")[-1]
 templates = [argv[i + 1] for i, a in enumerate(argv) if a == "-o"]
-main_template = next(t for t in templates if not t.startswith(("subtitle:", "infojson:")))
-out_dir = Path(main_template).parent
+out_dir = Path(templates[0].split(":", 1)[-1] if templates[0].startswith(("subtitle:", "infojson:"))
+               else templates[0]).parent
 mode = json.loads(os.environ.get("FAKE_YTDLP_SCRIPT", "{}")).get(video_id, "ok")
 
 if mode == "challenge":
@@ -62,7 +65,7 @@ if mode == "dub":
 
 out_dir.mkdir(parents=True, exist_ok=True)
 hold = float(os.environ.get("FAKE_YTDLP_SLEEP", "0"))
-for fmt in formats:
+for fmt in ([] if "--skip-download" in argv else formats):
     target = out_dir / f"{video_id}.f{fmt['format_id']}.{fmt['ext']}"
     if target.exists():
         print(f"[download] {target} has already been downloaded", file=sys.stderr)
@@ -76,11 +79,11 @@ for fmt in formats:
                      fmt["format_note"], fmt["language"], str(target)]))
 
 caption = out_dir / f"{video_id}.en.json3"
-if not caption.exists():
+if "--write-auto-subs" in argv and not caption.exists():
     caption.write_text(json.dumps(
         {"events": [{"tStartMs": 0, "dDurationMs": 1000, "segs": [{"utf8": "silence"}]}]}))
 info = out_dir / f"{video_id}.info.json"
-if not info.exists():
+if "--write-info-json" in argv and not info.exists():
     info.write_text(json.dumps({
         "id": video_id, "title": "fixture talk", "duration": 1, "upload_date": "20240828",
         "formats": [{k: v for k, v in fmt.items() if k != "fixture"} for fmt in formats]}))

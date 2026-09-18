@@ -28,6 +28,13 @@ class Config:
     dry_run: bool = False
     verbose: bool = False
     healthcheck_url: str | None = None
+    subtitles: str = "on"  # on | off (audio only) | only (captions for records fetched with off)
+
+
+# What an audio-only fetch writes in place of the captions block, so a reader
+# can tell "never asked" apart from "asked, none came back" (captions: null).
+CAPTIONS_NOT_REQUESTED = {"status": "not_requested",
+                          "reason": "audio-only fetch (--subtitles off); fetch later with --subtitles only"}
 
 
 @dataclass
@@ -59,7 +66,12 @@ def ids_from_file(path: Path) -> list[str]:
     return ids
 
 
-def build_queue(archive: Path, ids: list[str]) -> list[str]:
+def build_queue(archive: Path, ids: list[str], subtitles: str = "on") -> list[str]:
+    """Videos with no record yet; with subtitles "only", videos whose record
+    says captions were not requested."""
+    if subtitles == "only":
+        return [i for i in ids
+                if ((records.read_record(archive, i) or {}).get("captions") or {}).get("status") == "not_requested"]
     done = records.done_ids(archive)
     return [i for i in ids if i not in done]
 
@@ -125,17 +137,10 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
     if missing:
         raise verify.VerifyError(f"missing audio: {', '.join(sorted(missing))}")
 
-    warnings: list[str] = []
-    captions = None
-    caption_path = out_dir / f"{video_id}.en.json3"
-    if caption_path.exists():
-        events = json.loads(caption_path.read_text()).get("events")
-        if not isinstance(events, list):
-            raise verify.VerifyError("caption file has no events list")
-        captions = {"file": caption_path.name, "bytes": caption_path.stat().st_size,
-                    "sha256": verify.sha256_file(caption_path), "events": len(events)}
+    if cfg.subtitles == "off":
+        captions, warnings = dict(CAPTIONS_NOT_REQUESTED), ["captions_not_requested"]
     else:
-        warnings.append("captions_missing")
+        captions, warnings = captions_block(out_dir, video_id)
 
     return {
         "schema_version": records.SCHEMA_VERSION, "video_id": video_id, "status": "ok",
@@ -147,6 +152,32 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
         "warnings": warnings}
 
 
+def captions_block(out_dir: Path, video_id: str) -> tuple[dict | None, list[str]]:
+    """(captions, warnings) for captions that were requested."""
+    caption_path = out_dir / f"{video_id}.en.json3"
+    if not caption_path.exists():
+        return None, ["captions_missing"]
+    events = json.loads(caption_path.read_text()).get("events")
+    if not isinstance(events, list):
+        raise verify.VerifyError("caption file has no events list")
+    return {"file": caption_path.name, "bytes": caption_path.stat().st_size,
+            "sha256": verify.sha256_file(caption_path), "events": len(events)}, []
+
+
+def add_captions(cfg: Config, video_id: str, out_dir: Path) -> tuple[str, str]:
+    """After a subtitles-only fetch: swap the not_requested marker for the result."""
+    record = records.read_record(cfg.archive, video_id)
+    try:
+        captions, warnings = captions_block(out_dir, video_id)
+    except verify.VerifyError as e:
+        return "failed", str(e)
+    record["captions"] = captions
+    record["captions_fetched_at"] = utc_now_iso()
+    record["warnings"] = [w for w in record.get("warnings", []) if w != "captions_not_requested"] + warnings
+    records.write_record(cfg.archive, video_id, record)
+    return "ok", ""
+
+
 def process_video(cfg: Config, runner: ytdlp.Runner, video_id: str,
                   yt_dlp_version: str) -> tuple[str, str]:
     """Fetch and verify one video. Returns (kind, detail) where kind is
@@ -156,7 +187,10 @@ def process_video(cfg: Config, runner: ytdlp.Runner, video_id: str,
         return "failed", f"case_collision with existing directory {collision}"
     out_dir = records.video_dir(cfg.archive, video_id)
     out_dir.mkdir(parents=True, exist_ok=True)
-    outcome = runner.run(cfg.tools, video_id, out_dir, out_dir / f"{video_id}.yt-dlp.log", cfg.verbose)
+    outcome = runner.run(cfg.tools, video_id, out_dir, out_dir / f"{video_id}.yt-dlp.log", cfg.verbose,
+                         cfg.subtitles)
+    if cfg.subtitles == "only":
+        return add_captions(cfg, video_id, out_dir) if outcome.kind == "ok" else (outcome.kind, outcome.message)
     if outcome.kind == "unavailable":
         records.write_record(cfg.archive, video_id, {
             "schema_version": records.SCHEMA_VERSION, "video_id": video_id,
@@ -175,7 +209,7 @@ def process_video(cfg: Config, runner: ytdlp.Runner, video_id: str,
 
 def finish(cfg: Config, st: Status, result: RunResult) -> None:
     st.current_video = None
-    result.remaining = len(build_queue(cfg.archive, cfg.ids))
+    result.remaining = len(build_queue(cfg.archive, cfg.ids, cfg.subtitles))
     st.queue_depth = result.remaining
     st.records_total, st.unavailable_total, st.captions_missing_total = records.summarize(cfg.archive)
     st.last_run_end = utc_now_iso()
@@ -200,7 +234,7 @@ def run(cfg: Config, log=print) -> RunResult:
 
     try:
         st.yt_dlp_version = ytdlp.version(cfg.tools)
-        queue = build_queue(cfg.archive, cfg.ids)
+        queue = build_queue(cfg.archive, cfg.ids, cfg.subtitles)
         batch = queue[:cfg.limit]
         if cfg.dry_run:
             for video_id in batch:

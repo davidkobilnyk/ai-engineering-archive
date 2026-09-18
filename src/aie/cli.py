@@ -77,6 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
                       help="directory holding ffmpeg and ffprobe")
     p_bf.add_argument("--deno", type=Path, default=Path("/opt/homebrew/bin/deno"))
     p_bf.add_argument("--verbose", action="store_true", help="pass -v to yt-dlp")
+    p_bf.add_argument("--subtitles", choices=["on", "off", "only"], default="on",
+                      help="on (default): audio and captions; off: audio only, record marks captions "
+                           "not_requested; only: fetch captions for records marked not_requested")
     return parser
 
 
@@ -186,7 +189,8 @@ def cmd_backfill(args) -> int:
         archive=args.archive_dir.resolve(), ids=ids,
         tools=ytdlp_mod.Tools(args.yt_dlp, args.ffmpeg_dir, args.deno),
         limit=args.limit, manual=args.now, window=args.window, dry_run=args.dry_run,
-        verbose=args.verbose, healthcheck_url=os.environ.get("AIE_HEALTHCHECK_URL"))
+        verbose=args.verbose, healthcheck_url=os.environ.get("AIE_HEALTHCHECK_URL"),
+        subtitles=args.subtitles)
     result = backfill_mod.run(cfg)
     print(f"{result.outcome}: completed {result.completed}, failed {result.failed}, "
           f"remaining {result.remaining}")
