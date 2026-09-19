@@ -29,6 +29,11 @@ One row per run of `scripts/vpn_test.py` on a Proton exit. Raw logs and
 | 09-18 10:04 | DO#27 | 89.238.155.157 | AS9009 | on | 2 | 0 | 11/h | **Bot check** on 2nd video (jQDXzEVHMSE) at 10:07: `/watch` 302 to `google.com/sorry`, 429 there. 1st video failed locally (known-bad) | not checked | `2026-09-18-0604` |
 | 09-18 11:37 | FR#414 | 79.127.169.34 | AS212238 | **off** | 80 | 73 | 20/h | **Ran the full 4 h, no block.** 0 subtitle requests, 0 x 429, no bot check. 3 audio 403s on googlevideo (AMiyLItEtLA, ZyIoTOAbRfs, GgLQ02aO-hs; each video counted as failed, run went on), 4 wrong_track (the 2 known-bad + 2JX6JYyQG4Y, RGe6EjucbzI) | not checked | `2026-09-18-0737` |
 | 09-18 17:22 | FR#414 (same IP as 11:37) | 79.127.169.34 | AS212238 | **only** | 4 | 3 | 4/h | **Subtitle 429** on 3ZMUiFaQ3qg at 17:32, 9 min in. That request was a **Ukrainian-to-English translation** (`lang=uk&tlang=en`). The 3 ok were plain `lang=en` and saved readable English; records updated | not checked | `2026-09-18-1322` |
+| 09-18 19:33 | FI#92 | 66.234.150.25 | AS9009 | on | 1 | 0 | - | Interrupted after 1 video (transient); restarted a minute later with subtitles off | not checked | `2026-09-18-1533` |
+| 09-18 19:34 | FI#92 | 66.234.150.25 | AS9009 | **off** | 8 | 3 | - | **Stopped: 3 failures in a row**, all local: CvRngaQZQ3Y (leftover file) and 4 single-language English talks refused as wrong_track (false alarm, fixed in `38198e2`). No 429, no bot check | not checked | `2026-09-18-1534` |
+| 09-18 21:00 | FI#92 | 66.234.150.25 | AS9009 | **off** | 3 | 0 | - | Same stop, same causes (started before the wrong_track fix) | not checked | `2026-09-18-1700` |
+| 09-19 01:17 | GT#3 | 89.238.174.5 | AS9009 | **off** | 17 | 14 | 17/h | **Bot check** on the 17th video (-561cZmir5Q) at 02:06, 48 min in: `/watch` 302 to `google.com/sorry`, 429 there. First bot check mid-run, not at the start. 4 of the ok were the formerly refused single-language talks (files already on disk). 1 audio 403 (fnLBmfsI_Fg), 1 leftover-file (CvRngaQZQ3Y) | not checked | `2026-09-18-2117` |
+| 09-19 03:20 | GL#22 | 135.136.17.24 | AS9009 | **off** | 38 | 34 | 20/h | **Bot check** on the 38th video (UlFB6efYN5Q) at 05:11, 1 h 51 min in: `/watch` 302 to `google.com/sorry`, 429 there. 2 audio 403s (bZISsg7H7DA, c35YoMdnI78), 1 leftover-file (CvRngaQZQ3Y) | not checked | `2026-09-18-2320` |
 
 Log names are `vpn-test-2026-09-17-<HHMM>.log` (local time) unless given in full.
 
@@ -64,6 +69,10 @@ Log names are `vpn-test-2026-09-17-<HHMM>.log` (local time) unless given in full
   subtitle 429s were not kept (logs overwritten on retry, or the home job
   does not log them). Lead, not proven: translated subtitle requests may be
   what trips the limit. Asking for `en-orig` (next-round item 3) would test it.
+- **Audio-only runs can still get a bot check.** GT#3 (09-19) got one on its
+  17th video, 48 min in, with no subtitle requests at all. It is a different
+  block from the subtitle 429: it comes on the watch page (`google.com/sorry`).
+  FR#414 did 80 audio-only videos with none; GL#22 got one on its 38th.
 - **Two known-bad videos use up the first slots of every run:** CvRngaQZQ3Y
   (`unexpected codec ''`, leftover-file failure) and jQDXzEVHMSE (`wrong_track`).
 

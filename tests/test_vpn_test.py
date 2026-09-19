@@ -35,3 +35,23 @@ def test_ok_video_counts_every_request_by_endpoint():
     assert dict(counts) == {"webpage 200": 1, "api:player 200": 1, "manifest 200": 1,
                             "caption 200": 1, "media 302": 4, "media 206": 4}
     assert problems == []
+
+
+# Network check before the run and before every video. ASNs: 20115 is one of
+# Charter's (the home line); 212238 is a Proton exit seen on 09-17.
+
+def test_home_mode_accepts_a_direct_route_on_charter():
+    assert vpn_test.network_problem(tunnel=False, asn=20115, home=True) is None
+
+
+def test_home_mode_refuses_the_vpn_or_a_non_charter_address():
+    assert vpn_test.network_problem(tunnel=True, asn=20115, home=True) is not None
+    assert vpn_test.network_problem(tunnel=False, asn=212238, home=True) is not None
+    assert vpn_test.network_problem(tunnel=False, asn=None, home=True) is not None
+
+
+def test_vpn_mode_still_requires_the_tunnel_and_a_non_charter_address():
+    assert vpn_test.network_problem(tunnel=True, asn=212238) is None
+    assert vpn_test.network_problem(tunnel=False, asn=212238) is not None
+    assert vpn_test.network_problem(tunnel=True, asn=20115) is not None
+    assert vpn_test.network_problem(tunnel=True, asn=None) is not None
