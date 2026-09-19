@@ -7,7 +7,9 @@ home archive's status.json, queue records, lock, or backoff.
 
 Differences from the nightly job, all deliberate:
 - Requires the VPN: refuses to start, and stops mid-run, if the default route is
-  the physical interface or the egress ASN is Charter's.
+  the physical interface or the egress ASN is Charter's. With --home it
+  requires the opposite (direct route, Charter ASN), for a home-line
+  comparison at the same pace and with the same logging.
 - yt-dlp gets -v and --print-traffic; stdout is saved per video so the status
   line and headers (e.g. Retry-After) of any 403/429 are on disk. Request counts
   read both streams: subtitles go through curl_cffi when it is installed, and
@@ -232,11 +234,19 @@ def network() -> tuple[bool, str | None, int | None]:
     return tunnel, ip, guards.asn_of(ip) if ip else None
 
 
-def vpn_problem(tunnel: bool, asn: int | None) -> str | None:
-    if not tunnel:
-        return "default route is the physical interface (VPN off?)"
+def network_problem(tunnel: bool, asn: int | None, home: bool = False) -> str | None:
+    """Why this network is the wrong one for the run, or None. VPN mode needs the
+    tunnel and a non-Charter exit; home mode (--home) needs the opposite."""
     if asn is None:
         return "could not look up egress ASN"
+    if home:
+        if tunnel:
+            return "default route is a tunnel (VPN on?) but --home was given"
+        if asn not in guards.CHARTER_ASNS:
+            return f"egress ASN {asn} is not Charter's (not the home line?)"
+        return None
+    if not tunnel:
+        return "default route is the physical interface (VPN off?)"
     if asn in guards.CHARTER_ASNS:
         return f"egress ASN {asn} is Charter (home address)"
     return None
@@ -251,6 +261,9 @@ def main() -> int:
                     help="most video starts per hour; starts are spaced 3600/N s apart (default 20)")
     ap.add_argument("--max-per-day", type=int, default=200,
                     help="stop when this many videos started in the last 24 h, across runs (default 200)")
+    ap.add_argument("--home", action="store_true",
+                    help="run on the home line instead of the VPN: require a direct route and a "
+                         "Charter egress ASN (checked before every video)")
     ap.add_argument("--subtitles", choices=["on", "off", "only"], default="on",
                     help="on (default): audio and captions; off: audio only, record marks captions "
                          "not_requested; only: captions for records marked not_requested")
@@ -259,7 +272,7 @@ def main() -> int:
     args = ap.parse_args()
 
     tunnel, ip, asn = network()
-    problem = vpn_problem(tunnel, asn)
+    problem = network_problem(tunnel, asn, args.home)
     print(f"route via tunnel: {tunnel}; egress {ip} AS{asn}")
     if problem:
         print(f"refusing to run: {problem}", file=sys.stderr)
@@ -301,7 +314,8 @@ def main() -> int:
     signal.signal(signal.SIGINT, on_signal)
     signal.signal(signal.SIGTERM, on_signal)
 
-    summary = {"started": now_iso(), "subtitles": args.subtitles, "yt_dlp_version": version,
+    summary = {"started": now_iso(), "subtitles": args.subtitles,
+               "network": "home" if args.home else "vpn", "yt_dlp_version": version,
                "start_ip": ip, "start_asn": asn,
                "ip_changes": [], "attempted": 0, "outcomes": {}, "requests": {}, "non_2xx": [],
                "stopped_because": None, "ended": None}
@@ -321,7 +335,7 @@ def main() -> int:
             print(text)
 
         line("start", f"ip {ip}", f"AS{asn}", f"queue {len(queue)}", f"yt-dlp {version}",
-             f"subtitles {args.subtitles}")
+             f"subtitles {args.subtitles}", f"network {'home' if args.home else 'vpn'}")
         deadline = time.monotonic() + args.hours * 3600
         consecutive_failures = 0
         current_ip = ip
@@ -337,7 +351,7 @@ def main() -> int:
             totals[f"dns:public-ip {'ok' if ip else 'fail'}"] += 1
             if ip:
                 totals[f"dns:asn {'ok' if asn is not None else 'fail'}"] += 1
-            problem = vpn_problem(tunnel, asn)
+            problem = network_problem(tunnel, asn, args.home)
             if problem:
                 summary["stopped_because"] = f"vpn check: {problem}"
                 line("stop", problem)
