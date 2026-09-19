@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,6 +37,31 @@ def ffprobe_audio(ffprobe: Path, file: Path) -> Probe:
                  duration_s=float(data["format"].get("duration", "nan")),
                  sample_rate=int(stream.get("sample_rate", 0)),
                  channels=int(stream.get("channels", 0)))
+
+
+@dataclass
+class Decoded:
+    duration_s: float  # from the decoded samples, not the container header
+    mean_volume_db: float
+    errors: list[str]  # ffmpeg error lines; any means damaged data somewhere
+
+
+def decode_audio(ffmpeg: Path, file: Path, sample_rate: int, channels: int) -> Decoded:
+    """Decode the whole first audio stream. ffprobe reads only the header, so a
+    file cut short or damaged mid-way can still report its full duration."""
+    cmd = [str(ffmpeg), "-nostats", "-hide_banner", "-loglevel", "level+info", "-i", str(file),
+           "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    lines = proc.stderr.splitlines()
+    errors = [l for l in lines if "[error]" in l or "[fatal]" in l]
+    if proc.returncode != 0 and not errors:
+        errors = [f"ffmpeg exit {proc.returncode}"]
+    samples = [int(m.group(1)) for l in lines if (m := re.search(r"n_samples: (\d+)", l))]
+    volumes = [float(m.group(1)) for l in lines if (m := re.search(r"mean_volume: (-?[\d.]+|-inf) dB", l))]
+    if not samples or not volumes or not sample_rate or not channels:
+        raise VerifyError(f"decode of {file.name} gave no sample count: {errors[:1]}")
+    return Decoded(duration_s=round(samples[-1] / (sample_rate * channels), 3),
+                   mean_volume_db=volumes[-1], errors=errors)
 
 
 def streamhash_sha256(ffmpeg: Path, file: Path) -> str:

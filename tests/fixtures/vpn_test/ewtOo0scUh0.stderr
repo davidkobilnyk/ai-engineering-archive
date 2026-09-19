@@ -1,0 +1,19 @@
+[youtube] Extracting URL: https://www.youtube.com/watch?q
+[youtube] ewtOo0scUh0: Downloading webpage
+[youtube] Sleeping 3.0 seconds ...
+[youtube] ewtOo0scUh0: Downloading visionos player API JSON
+[youtube] Sleeping 3.0 seconds ...
+[youtube] ewtOo0scUh0: Downloading m3u8 information
+[info] ewtOo0scUh0: Downloading subtitles: en
+[info] ewtOo0scUh0: Downloading 2 format(s): 251-20, 140-20
+[info] Writing video subtitles to: /Volumes/Archive/vpn-test/videos/ewtOo0scUh0/ewtOo0scUh0.f251-20.en.json3
+> GET /api/timedtext?q HTTP/2
+Host: www.youtube.com
+< HTTP/2 200 
+< content-type: application/json; charset=UTF-8
+< date: Fri, 18 Sep 2026 09:58:16 GMT
+< server: video-timedtext
+< 
+[info] Writing video metadata as JSON to: /Volumes/Archive/vpn-test/videos/ewtOo0scUh0/ewtOo0scUh0.info.json
+[info] Video subtitle en.json3 is already present
+[info] Video metadata is already present

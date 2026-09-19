@@ -1,0 +1,22 @@
+send: b'GET /watch?q HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: text/html; charset=utf-8
+header: Date: Fri, 18 Sep 2026 10:01:02 GMT
+header: Server: ESF
+send: b'POST /youtubei/v1/player?q HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: application/json; charset=UTF-8
+header: Date: Fri, 18 Sep 2026 10:01:06 GMT
+header: Server: scaffolding on HTTPServer2
+header: Content-Length: 28121
+send: b'GET /api/manifest/hls_variant/x HTTP/1.1\r\nHost: manifest.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: application/vnd.apple.mpegurl
+header: Date: Fri, 18 Sep 2026 10:01:10 GMT
+header: Server: HTTP server (unknown)
+send: b'GET /s/player/ecb23058/player_ias.vflset/en_US/base.js HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Length: 762818
+header: Server: sffe
+header: Date: Thu, 17 Sep 2026 20:17:58 GMT
+header: Content-Type: text/javascript

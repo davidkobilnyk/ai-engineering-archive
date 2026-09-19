@@ -55,7 +55,10 @@ class Outcome:
     message: str = ""
 
 
-def build_command(tools: Tools, video_id: str, out_dir: Path, verbose: bool = False) -> list[str]:
+def build_command(tools: Tools, video_id: str, out_dir: Path, verbose: bool = False,
+                  subtitles: str = "on") -> list[str]:
+    """subtitles: "on" audio, captions and info JSON; "off" audio and info JSON
+    only; "only" captions only (--skip-download), for records fetched with "off"."""
     o = str(out_dir)
     cmd = [str(tools.yt_dlp),
            "-4", "--sleep-requests", "3", "--sleep-interval", "10", "--max-sleep-interval", "30",
@@ -63,13 +66,16 @@ def build_command(tools: Tools, video_id: str, out_dir: Path, verbose: bool = Fa
            "--extractor-retries", "0", "--retries", "10", "--retry-sleep", "http:exp=1:60",
            "--fragment-retries", "10", "--abort-on-unavailable-fragments",
            "--no-playlist", "--no-overwrites", "--newline",
-           "--js-runtimes", f"deno:{tools.deno}", "--ffmpeg-location", str(tools.ffmpeg_dir),
-           "-f", AUDIO_SELECTOR,
-           "--write-info-json", "--write-auto-subs", "--sub-langs", "en", "--sub-format", "json3",
-           "-o", f"{o}/%(id)s.f%(format_id)s.%(ext)s",
-           "-o", f"subtitle:{o}/%(id)s.%(ext)s",
-           "-o", f"infojson:{o}/%(id)s.%(ext)s",
-           "--print", PRINT_TEMPLATE]
+           "--js-runtimes", f"deno:{tools.deno}", "--ffmpeg-location", str(tools.ffmpeg_dir)]
+    subs = ["--write-auto-subs", "--sub-langs", "en", "--sub-format", "json3"]
+    if subtitles == "only":
+        cmd += ["--skip-download", *subs, "-o", f"subtitle:{o}/%(id)s.%(ext)s"]
+    else:
+        cmd += ["-f", AUDIO_SELECTOR, "--write-info-json", *(subs if subtitles == "on" else []),
+                "-o", f"{o}/%(id)s.f%(format_id)s.%(ext)s",
+                *(["-o", f"subtitle:{o}/%(id)s.%(ext)s"] if subtitles == "on" else []),
+                "-o", f"infojson:{o}/%(id)s.%(ext)s",
+                "--print", PRINT_TEMPLATE]
     if verbose:
         cmd.append("-v")
     cmd.append(f"https://www.youtube.com/watch?v={video_id}")
@@ -136,8 +142,8 @@ class Runner:
         self.current: subprocess.Popen | None = None
 
     def run(self, tools: Tools, video_id: str, out_dir: Path, log_path: Path,
-            verbose: bool = False) -> Outcome:
-        cmd = build_command(tools, video_id, out_dir, verbose)
+            verbose: bool = False, subtitles: str = "on") -> Outcome:
+        cmd = build_command(tools, video_id, out_dir, verbose, subtitles)
         self.current = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stdout, stderr = self.current.communicate()
         code = self.current.returncode

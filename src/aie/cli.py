@@ -77,7 +77,21 @@ def build_parser() -> argparse.ArgumentParser:
                       help="directory holding ffmpeg and ffprobe")
     p_bf.add_argument("--deno", type=Path, default=Path("/opt/homebrew/bin/deno"))
     p_bf.add_argument("--verbose", action="store_true", help="pass -v to yt-dlp")
+    p_bf.add_argument("--subtitles", choices=["on", "off", "only"], default="on",
+                      help="on (default): audio and captions; off: audio only, record marks captions "
+                           "not_requested; only: fetch captions for records marked not_requested")
+    p_audit = sub.add_parser("audit-audio", help="recheck fetched audio files on the archive drive: "
+                                                 "full decode, sizes, stream hashes, opus vs aac")
+    p_audit.add_argument("--archive-dir", type=Path,
+                         default=Path(os.environ.get("AIE_ARCHIVE_DIR", "/Volumes/Archive")))
+    p_audit.add_argument("--ffmpeg-dir", type=Path, default=Path("/opt/homebrew/bin"),
+                         help="directory holding ffmpeg and ffprobe")
     return parser
+
+
+def cmd_audit_audio(args) -> int:
+    tools = ytdlp_mod.Tools(Path("yt-dlp"), args.ffmpeg_dir, Path("deno"))
+    return backfill_mod.audit(tools, args.archive_dir.resolve())
 
 
 def cmd_sync(args) -> int:
@@ -186,7 +200,8 @@ def cmd_backfill(args) -> int:
         archive=args.archive_dir.resolve(), ids=ids,
         tools=ytdlp_mod.Tools(args.yt_dlp, args.ffmpeg_dir, args.deno),
         limit=args.limit, manual=args.now, window=args.window, dry_run=args.dry_run,
-        verbose=args.verbose, healthcheck_url=os.environ.get("AIE_HEALTHCHECK_URL"))
+        verbose=args.verbose, healthcheck_url=os.environ.get("AIE_HEALTHCHECK_URL"),
+        subtitles=args.subtitles)
     result = backfill_mod.run(cfg)
     print(f"{result.outcome}: completed {result.completed}, failed {result.failed}, "
           f"remaining {result.remaining}")
@@ -196,6 +211,7 @@ def cmd_backfill(args) -> int:
 COMMANDS = {
     "sync": cmd_sync, "index": cmd_index, "search": cmd_search,
     "show": cmd_show, "talks": cmd_talks, "status": cmd_status, "backfill": cmd_backfill,
+    "audit-audio": cmd_audit_audio,
 }
 
 

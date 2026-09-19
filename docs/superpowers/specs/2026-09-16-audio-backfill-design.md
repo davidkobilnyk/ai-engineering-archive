@@ -163,7 +163,14 @@ warnings still reach stderr, which is saved per video. No `-v` unless
 
 `status` is `ok` or `unavailable` (with `unavailable_reason`, no `audio`).
 `captions` is `null` with a warning `captions_missing` when yt-dlp wrote
-none; that is recorded, not retried nightly. The record is written with
+none; that is recorded, not retried nightly. With `--subtitles off`
+(audio only, added 2026-09-18) captions are never requested, and the record
+says so in words instead of `null`:
+`"captions": {"status": "not_requested", "reason": "audio-only fetch
+(--subtitles off); fetch later with --subtitles only"}` with the warning
+`captions_not_requested`. `--subtitles only` fetches captions (no audio) for
+exactly those records, replaces the block with the normal one, adds
+`captions_fetched_at`, and drops the warning. The record is written with
 temp file plus `os.replace` after every check in section 7 passes, so a
 kill at any point leaves no record and the next run redoes the video
 (yt-dlp resumes the `.part` or reports "already downloaded").
@@ -184,7 +191,12 @@ For each of the two audio rows from `after_move`:
    is no `.part` file beside it.
 2. The row's `language` starts with `en` and `format_note` contains
    `original` (the dub guard). Otherwise the video fails with reason
-   `wrong_track` and the files are left for inspection.
+   `wrong_track` and the files are left for inspection. Changed
+   2026-09-18: `original` is required only when info.json lists an audio
+   format in another language. YouTube adds the label only when dubs
+   exist, so single-language English talks (e.g. VrpEyglYgeU: 10 audio
+   formats, all `en`, notes like `medium, VISI`) were being refused; 8 such
+   videos had been, all valid on a full audio check.
 3. `ffprobe` codec is `opus` for the Opus row and `aac` for the AAC row.
 4. `ffprobe` format duration is within 2 s of `duration` in info.json
    (the truncation check from brief 04; both calibration talks differ by
@@ -194,6 +206,26 @@ For each of the two audio rows from `after_move`:
 Exactly one Opus row and one AAC row must be present. The caption file, if
 present, must parse as JSON with an `events` list. The info.json must
 parse and carry `duration`.
+
+Added 2026-09-18, because step 4 reads only the container header: a file
+cut to 5000 bytes, or with 400 bytes damaged mid-file, still reported its
+full duration there (measured on the test fixtures).
+
+6. The Opus file size equals the `filesize` info.json lists for its format.
+   Not applied to AAC: yt-dlp's `FixupM4a` remuxes it, which changed one
+   file by 13 KB.
+7. Full decode (`ffmpeg -loglevel level+info -i <file> -af volumedetect -f null -`)
+   prints no error lines. Records `decoded_duration_s` (decoded samples /
+   rate / channels) and `mean_volume_db`, plus Opus `listed_bytes`.
+8. Opus and AAC agree: decoded durations within 0.5 s and mean volume
+   within 1 dB. On 25 real talks (FR#414) the worst gaps were 0.059 s and
+   0.1 dB, with 0 decode errors; decoding took about 3 s per video.
+9. If both tracks average below -50 dB (talks measured -25 to -35 dB), the
+   record is still written with the warning `audio_quiet`.
+
+`aie audit-audio --archive-dir <root>` reruns 3, 4 and 6 to 8 on every ok
+record's files, and recomputes each stream hash against the record. It
+changes nothing, prints one line per video, and exits 1 if any problem.
 
 ## 8. Outcome classification and the run loop
 

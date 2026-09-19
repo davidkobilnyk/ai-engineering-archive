@@ -12,6 +12,11 @@ from . import guards, records, verify, ytdlp
 from .status import Status, ping, utc_now_iso
 
 DURATION_TOLERANCE_S = 2.0
+# Opus vs AAC of one video, decoded (ewtOo0scUh0, 19 min: 0.04 s and 0.0 dB apart).
+TRACKS_DURATION_TOLERANCE_S = 0.5
+TRACKS_VOLUME_TOLERANCE_DB = 1.0
+# Talks measured -25 to -35 dB mean; below this is near-silent (kept, with a warning).
+QUIET_DB = -50.0
 MAX_CONSECUTIVE_FAILURES = 3
 BACKOFF_HOURS = 24
 CHALLENGE_ALERT_STRIKES = 2
@@ -28,6 +33,13 @@ class Config:
     dry_run: bool = False
     verbose: bool = False
     healthcheck_url: str | None = None
+    subtitles: str = "on"  # on | off (audio only) | only (captions for records fetched with off)
+
+
+# What an audio-only fetch writes in place of the captions block, so a reader
+# can tell "never asked" apart from "asked, none came back" (captions: null).
+CAPTIONS_NOT_REQUESTED = {"status": "not_requested",
+                          "reason": "audio-only fetch (--subtitles off); fetch later with --subtitles only"}
 
 
 @dataclass
@@ -59,7 +71,12 @@ def ids_from_file(path: Path) -> list[str]:
     return ids
 
 
-def build_queue(archive: Path, ids: list[str]) -> list[str]:
+def build_queue(archive: Path, ids: list[str], subtitles: str = "on") -> list[str]:
+    """Videos with no record yet; with subtitles "only", videos whose record
+    says captions were not requested."""
+    if subtitles == "only":
+        return [i for i in ids
+                if ((records.read_record(archive, i) or {}).get("captions") or {}).get("status") == "not_requested"]
     done = records.done_ids(archive)
     return [i for i in ids if i not in done]
 
@@ -80,6 +97,80 @@ def audio_role(acodec: str) -> str | None:
     return None
 
 
+def listed_bytes(info: dict, format_id: str) -> int | None:
+    """The size YouTube lists for a format in info.json, if any."""
+    for fmt in info.get("formats") or []:
+        if fmt.get("format_id") == format_id:
+            return fmt.get("filesize")
+    return None
+
+
+def check_track(tools: ytdlp.Tools, file: Path, role: str, duration: float,
+                listed: int | None) -> tuple[verify.Probe, verify.Decoded]:
+    """Every check on one audio file. Raises VerifyError."""
+    probe = verify.ffprobe_audio(tools.ffprobe, file)
+    if probe.codec != role:
+        raise verify.VerifyError(f"{file.name}: codec {probe.codec}, expected {role}")
+    if abs(probe.duration_s - float(duration)) > DURATION_TOLERANCE_S:
+        raise verify.VerifyError(f"{file.name}: duration {probe.duration_s:.1f}s vs metadata {duration}s")
+    # Opus is kept exactly as downloaded; yt-dlp remuxes AAC (FixupM4a), so its size differs.
+    if role == "opus" and listed and file.stat().st_size != listed:
+        raise verify.VerifyError(f"{file.name}: {file.stat().st_size} bytes, YouTube lists {listed}")
+    decoded = verify.decode_audio(tools.ffmpeg, file, probe.sample_rate, probe.channels)
+    if decoded.errors:
+        raise verify.VerifyError(f"{file.name}: {len(decoded.errors)} decode error(s), first: "
+                                 f"{decoded.errors[0]}")
+    return probe, decoded
+
+
+def check_pair(opus: dict, aac: dict) -> None:
+    """Two separate downloads of the same source: they should decode alike."""
+    if (abs(opus["decoded_duration_s"] - aac["decoded_duration_s"]) > TRACKS_DURATION_TOLERANCE_S
+            or abs(opus["mean_volume_db"] - aac["mean_volume_db"]) > TRACKS_VOLUME_TOLERANCE_DB):
+        raise verify.VerifyError(
+            f"opus and aac disagree: {opus['decoded_duration_s']}s at {opus['mean_volume_db']} dB vs "
+            f"{aac['decoded_duration_s']}s at {aac['mean_volume_db']} dB")
+
+
+def audit_video(tools: ytdlp.Tools, archive: Path, video_id: str) -> str | None:
+    """Recheck an ok record's audio files on disk; the problem found, or None."""
+    record = records.read_record(archive, video_id)
+    out_dir = records.video_dir(archive, video_id)
+    try:
+        info = json.loads((out_dir / f"{video_id}.info.json").read_text())
+        measured = {}
+        for role, entry in record["audio"].items():
+            file = out_dir / entry["file"]
+            if not file.exists():
+                raise verify.VerifyError(f"missing file {file.name}")
+            _, decoded = check_track(tools, file, role, record["duration_s"],
+                                     listed_bytes(info, entry["format_id"]))
+            if verify.streamhash_sha256(tools.ffmpeg, file) != entry["streamhash_sha256"]:
+                raise verify.VerifyError(f"{file.name}: stream hash differs from the record")
+            measured[role] = {"decoded_duration_s": decoded.duration_s, "mean_volume_db": decoded.mean_volume_db}
+        check_pair(measured["opus"], measured["aac"])
+    except (verify.VerifyError, OSError, KeyError, ValueError) as e:
+        return str(e)
+    return None
+
+
+def audit(tools: ytdlp.Tools, archive: Path, log=print) -> int:
+    """Recheck every ok record; prints one line per video. Exit code 1 if any problem."""
+    ok = problems = 0
+    for video_id in sorted(records.done_ids(archive)):
+        if (records.read_record(archive, video_id) or {}).get("status") != "ok":
+            continue
+        problem = audit_video(tools, archive, video_id)
+        if problem:
+            problems += 1
+            log(f"{video_id}\tPROBLEM\t{problem}")
+        else:
+            ok += 1
+            log(f"{video_id}\tok")
+    log(f"audited {ok + problems}: ok {ok}, problems {problems}")
+    return 1 if problems else 0
+
+
 def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row],
                  yt_dlp_version: str) -> dict:
     """Spec section 7: every check, then the record. Raises VerifyError."""
@@ -95,6 +186,9 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
     rows = rows + [row for row in ytdlp.rows_from_files(out_dir, video_id, info)
                    if audio_role(row.acodec) not in printed_roles]
 
+    has_other_languages = any(
+        (f.get("language") or "en").lower()[:2] != "en"
+        for f in info.get("formats") or [] if f.get("vcodec") == "none" and f.get("acodec") not in (None, "none"))
     audio: dict[str, dict] = {}
     for row in rows:
         role = audio_role(row.acodec)
@@ -102,7 +196,10 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
             raise verify.VerifyError(f"unexpected codec {row.acodec!r} for format {row.format_id}")
         if role in audio:
             raise verify.VerifyError(f"two {role} rows")
-        if not row.language.lower().startswith("en") or "original" not in row.format_note.lower():
+        # YouTube labels a track "original" only when other language tracks
+        # (dubs) exist, so the label is required only then.
+        if not row.language.lower().startswith("en") or (
+                has_other_languages and "original" not in row.format_note.lower()):
             raise verify.VerifyError(
                 f"wrong_track: format {row.format_id} is {row.language!r} {row.format_note!r}")
         file = row.filepath if row.filepath.is_absolute() else out_dir / row.filepath
@@ -110,32 +207,29 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
             raise verify.VerifyError(f"missing file {file.name}")
         if file.with_name(file.name + ".part").exists():
             raise verify.VerifyError(f"partial file beside {file.name}")
-        probe = verify.ffprobe_audio(cfg.tools.ffprobe, file)
-        if probe.codec != role:
-            raise verify.VerifyError(f"{file.name}: codec {probe.codec}, expected {role}")
-        if abs(probe.duration_s - float(duration)) > DURATION_TOLERANCE_S:
-            raise verify.VerifyError(
-                f"{file.name}: duration {probe.duration_s:.1f}s vs metadata {duration}s")
+        listed = listed_bytes(info, row.format_id)
+        probe, decoded = check_track(cfg.tools, file, role, duration, listed)
         audio[role] = {
             "format_id": row.format_id, "file": file.name, "bytes": file.stat().st_size,
             "codec": probe.codec, "abr_kbps": row.abr, "language": row.language,
             "format_note": row.format_note, "probe_duration_s": round(probe.duration_s, 3),
+            "decoded_duration_s": decoded.duration_s, "mean_volume_db": decoded.mean_volume_db,
             "streamhash_sha256": verify.streamhash_sha256(cfg.tools.ffmpeg, file)}
+        if role == "opus":
+            audio[role]["listed_bytes"] = listed
     missing = {"opus", "aac"} - audio.keys()
     if missing:
         raise verify.VerifyError(f"missing audio: {', '.join(sorted(missing))}")
+    opus, aac = audio["opus"], audio["aac"]
+    check_pair(opus, aac)
 
-    warnings: list[str] = []
-    captions = None
-    caption_path = out_dir / f"{video_id}.en.json3"
-    if caption_path.exists():
-        events = json.loads(caption_path.read_text()).get("events")
-        if not isinstance(events, list):
-            raise verify.VerifyError("caption file has no events list")
-        captions = {"file": caption_path.name, "bytes": caption_path.stat().st_size,
-                    "sha256": verify.sha256_file(caption_path), "events": len(events)}
+    if cfg.subtitles == "off":
+        captions, warnings = dict(CAPTIONS_NOT_REQUESTED), ["captions_not_requested"]
     else:
-        warnings.append("captions_missing")
+        captions, warnings = captions_block(out_dir, video_id)
+
+    if max(opus["mean_volume_db"], aac["mean_volume_db"]) < QUIET_DB:
+        warnings.append("audio_quiet")
 
     return {
         "schema_version": records.SCHEMA_VERSION, "video_id": video_id, "status": "ok",
@@ -147,6 +241,32 @@ def build_record(cfg: Config, video_id: str, out_dir: Path, rows: list[ytdlp.Row
         "warnings": warnings}
 
 
+def captions_block(out_dir: Path, video_id: str) -> tuple[dict | None, list[str]]:
+    """(captions, warnings) for captions that were requested."""
+    caption_path = out_dir / f"{video_id}.en.json3"
+    if not caption_path.exists():
+        return None, ["captions_missing"]
+    events = json.loads(caption_path.read_text()).get("events")
+    if not isinstance(events, list):
+        raise verify.VerifyError("caption file has no events list")
+    return {"file": caption_path.name, "bytes": caption_path.stat().st_size,
+            "sha256": verify.sha256_file(caption_path), "events": len(events)}, []
+
+
+def add_captions(cfg: Config, video_id: str, out_dir: Path) -> tuple[str, str]:
+    """After a subtitles-only fetch: swap the not_requested marker for the result."""
+    record = records.read_record(cfg.archive, video_id)
+    try:
+        captions, warnings = captions_block(out_dir, video_id)
+    except verify.VerifyError as e:
+        return "failed", str(e)
+    record["captions"] = captions
+    record["captions_fetched_at"] = utc_now_iso()
+    record["warnings"] = [w for w in record.get("warnings", []) if w != "captions_not_requested"] + warnings
+    records.write_record(cfg.archive, video_id, record)
+    return "ok", ""
+
+
 def process_video(cfg: Config, runner: ytdlp.Runner, video_id: str,
                   yt_dlp_version: str) -> tuple[str, str]:
     """Fetch and verify one video. Returns (kind, detail) where kind is
@@ -156,7 +276,10 @@ def process_video(cfg: Config, runner: ytdlp.Runner, video_id: str,
         return "failed", f"case_collision with existing directory {collision}"
     out_dir = records.video_dir(cfg.archive, video_id)
     out_dir.mkdir(parents=True, exist_ok=True)
-    outcome = runner.run(cfg.tools, video_id, out_dir, out_dir / f"{video_id}.yt-dlp.log", cfg.verbose)
+    outcome = runner.run(cfg.tools, video_id, out_dir, out_dir / f"{video_id}.yt-dlp.log", cfg.verbose,
+                         cfg.subtitles)
+    if cfg.subtitles == "only":
+        return add_captions(cfg, video_id, out_dir) if outcome.kind == "ok" else (outcome.kind, outcome.message)
     if outcome.kind == "unavailable":
         records.write_record(cfg.archive, video_id, {
             "schema_version": records.SCHEMA_VERSION, "video_id": video_id,
@@ -175,7 +298,7 @@ def process_video(cfg: Config, runner: ytdlp.Runner, video_id: str,
 
 def finish(cfg: Config, st: Status, result: RunResult) -> None:
     st.current_video = None
-    result.remaining = len(build_queue(cfg.archive, cfg.ids))
+    result.remaining = len(build_queue(cfg.archive, cfg.ids, cfg.subtitles))
     st.queue_depth = result.remaining
     st.records_total, st.unavailable_total, st.captions_missing_total = records.summarize(cfg.archive)
     st.last_run_end = utc_now_iso()
@@ -200,7 +323,7 @@ def run(cfg: Config, log=print) -> RunResult:
 
     try:
         st.yt_dlp_version = ytdlp.version(cfg.tools)
-        queue = build_queue(cfg.archive, cfg.ids)
+        queue = build_queue(cfg.archive, cfg.ids, cfg.subtitles)
         batch = queue[:cfg.limit]
         if cfg.dry_run:
             for video_id in batch:

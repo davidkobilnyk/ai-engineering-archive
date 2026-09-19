@@ -1,0 +1,72 @@
+send: b'GET /watch?q HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: text/html; charset=utf-8
+header: Date: Fri, 18 Sep 2026 09:58:02 GMT
+header: Server: ESF
+send: b'POST /youtubei/v1/player?q HTTP/1.1\r\nHost: www.youtube.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: application/json; charset=UTF-8
+header: Date: Fri, 18 Sep 2026 09:58:06 GMT
+header: Server: scaffolding on HTTPServer2
+header: Content-Length: 27413
+send: b'GET /api/manifest/hls_variant/x HTTP/1.1\r\nHost: manifest.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 200 OK\r\n'
+header: Content-Type: application/vnd.apple.mpegurl
+header: Date: Fri, 18 Sep 2026 09:58:10 GMT
+header: Server: HTTP server (unknown)
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-aj5go5-5p.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 302 Found\r\n'
+header: Date: Fri, 18 Sep 2026 09:58:38 GMT
+header: Location: https://rr2---sn-4g5ednse.googlevideo.com/videoplayback?q
+header: Content-Length: 0
+header: Content-Type: text/html
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-4g5ednse.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 206 Partial Content\r\n'
+header: Content-Type: audio/webm
+header: Date: Fri, 18 Sep 2026 09:58:51 GMT
+header: Content-Range: bytes 0-10417871/17718251
+header: Content-Length: 10417872
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-aj5go5-5p.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 302 Found\r\n'
+header: Date: Fri, 18 Sep 2026 09:58:54 GMT
+header: Location: https://rr2---sn-4g5ednse.googlevideo.com/videoplayback?q
+header: Content-Length: 0
+header: Content-Type: text/html
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-4g5ednse.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 206 Partial Content\r\n'
+header: Content-Type: audio/webm
+header: Date: Fri, 18 Sep 2026 09:58:54 GMT
+header: Content-Range: bytes 10417872-17718250/17718251
+header: Content-Length: 7300379
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-aj5go5-5p.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 302 Found\r\n'
+header: Date: Fri, 18 Sep 2026 09:59:24 GMT
+header: Location: https://rr2---sn-4g5ednse.googlevideo.com/videoplayback?q
+header: Content-Length: 0
+header: Content-Type: text/html
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-4g5ednse.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 206 Partial Content\r\n'
+header: Content-Type: audio/mp4
+header: Date: Fri, 18 Sep 2026 09:59:25 GMT
+header: Content-Range: bytes 0-10265552/18634356
+header: Content-Length: 10265553
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-aj5go5-5p.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 302 Found\r\n'
+header: Date: Fri, 18 Sep 2026 09:59:29 GMT
+header: Location: https://rr2---sn-4g5ednse.googlevideo.com/videoplayback?q
+header: Content-Length: 0
+header: Content-Type: text/html
+header: Server: gvs 1.0
+send: b'GET /videoplayback?q HTTP/1.1\r\nHost: rr2---sn-4g5ednse.googlevideo.com\r\nUser-Agent: test\r\n\r\n'
+reply: 'HTTP/1.1 206 Partial Content\r\n'
+header: Content-Type: audio/mp4
+header: Date: Fri, 18 Sep 2026 09:59:29 GMT
+header: Content-Range: bytes 10265553-18634355/18634356
+header: Content-Length: 8368803
+header: Server: gvs 1.0

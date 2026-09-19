@@ -8,12 +8,19 @@ exit codes, --no-overwrites, .part files, and --version.
 Environment:
   FAKE_YTDLP_LOG     argv is appended to this file as one JSON line per call
   FAKE_YTDLP_SCRIPT  JSON object mapping video id to a mode:
-                     ok (default), challenge, unavailable, fail, dub
+                     ok (default), challenge, unavailable, fail, dub,
+                     silent (both tracks silence), mismatch (opus tone, aac silence),
+                     truncated (opus cut to 5000 bytes, full size still listed),
+                     corrupt (400 aac bytes flipped mid-file, same size),
+                     single (English only, no "original" label: no other tracks exist),
+                     unlabelled_dubs (same English tracks, plus a Spanish dub listed)
   FAKE_YTDLP_SLEEP   seconds to hold each .part file before finishing it
+
+Like the real one, it writes captions only with --write-auto-subs, the info
+JSON only with --write-info-json, and no audio with --skip-download.
 """
 import json
 import os
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -34,8 +41,8 @@ if os.environ.get("FAKE_YTDLP_LOG"):
 url = argv[-1]
 video_id = url.split("v=")[-1]
 templates = [argv[i + 1] for i, a in enumerate(argv) if a == "-o"]
-main_template = next(t for t in templates if not t.startswith(("subtitle:", "infojson:")))
-out_dir = Path(main_template).parent
+out_dir = Path(templates[0].split(":", 1)[-1] if templates[0].startswith(("subtitle:", "infojson:"))
+               else templates[0]).parent
 mode = json.loads(os.environ.get("FAKE_YTDLP_SCRIPT", "{}")).get(video_id, "ok")
 
 if mode == "challenge":
@@ -52,23 +59,41 @@ if mode == "fail":
 
 formats = [
     {"format_id": "251", "acodec": "opus", "abr": 113.488, "ext": "webm", "language": "en-US",
-     "format_note": "English (US) original (default), medium", "fixture": "silence.f251.webm"},
+     "format_note": "English (US) original (default), medium", "fixture": "tone.f251.webm"},
     {"format_id": "140", "acodec": "mp4a.40.2", "abr": 129.479, "ext": "m4a", "language": "en-US",
-     "format_note": "English (US) original (default), medium", "fixture": "silence.f140.m4a"},
+     "format_note": "English (US) original (default), medium", "fixture": "tone.f140.m4a"},
 ]
+if mode == "silent":
+    formats = [{**f, "fixture": f["fixture"].replace("tone", "silence")} for f in formats]
+if mode == "mismatch":
+    formats[1] = {**formats[1], "fixture": "silence.f140.m4a"}
+for f in formats:
+    f["filesize"] = (FIXTURES / f["fixture"]).stat().st_size  # what YouTube lists
+if mode in ("single", "unlabelled_dubs"):
+    formats = [{**f, "format_note": "medium, VISI", "language": "en"} for f in formats]
+extra_listed = []
+if mode == "unlabelled_dubs":
+    extra_listed = [{"format_id": "251-1", "acodec": "opus", "vcodec": "none", "language": "es",
+                     "format_note": "Spanish, medium, VISI"}]
 if mode == "dub":
     formats[0] = {**formats[0], "format_id": "251-11", "abr": 146.859,
                   "format_note": "Malayalam, medium", "language": "ml"}
 
 out_dir.mkdir(parents=True, exist_ok=True)
 hold = float(os.environ.get("FAKE_YTDLP_SLEEP", "0"))
-for fmt in formats:
+for fmt in ([] if "--skip-download" in argv else formats):
     target = out_dir / f"{video_id}.f{fmt['format_id']}.{fmt['ext']}"
     if target.exists():
         print(f"[download] {target} has already been downloaded", file=sys.stderr)
         continue
     part = target.with_name(target.name + ".part")
-    shutil.copy(FIXTURES / fmt["fixture"], part)
+    data = bytearray((FIXTURES / fmt["fixture"]).read_bytes())
+    if mode == "truncated" and fmt["format_id"] == "251":
+        data = data[:5000]
+    if mode == "corrupt" and fmt["format_id"] == "140":
+        for i in range(len(data) // 2, len(data) // 2 + 400):
+            data[i] ^= 0xFF
+    part.write_bytes(bytes(data))
     if hold:
         time.sleep(hold)
     os.replace(part, target)
@@ -76,12 +101,13 @@ for fmt in formats:
                      fmt["format_note"], fmt["language"], str(target)]))
 
 caption = out_dir / f"{video_id}.en.json3"
-if not caption.exists():
+if "--write-auto-subs" in argv and not caption.exists():
     caption.write_text(json.dumps(
         {"events": [{"tStartMs": 0, "dDurationMs": 1000, "segs": [{"utf8": "silence"}]}]}))
 info = out_dir / f"{video_id}.info.json"
-if not info.exists():
+if "--write-info-json" in argv and not info.exists():
     info.write_text(json.dumps({
         "id": video_id, "title": "fixture talk", "duration": 1, "upload_date": "20240828",
-        "formats": [{k: v for k, v in fmt.items() if k != "fixture"} for fmt in formats]}))
+        "formats": [{**{k: v for k, v in fmt.items() if k != "fixture"}, "vcodec": "none"}
+                    for fmt in formats] + extra_listed}))
 print(IMPERSONATION_WARNING, file=sys.stderr)
